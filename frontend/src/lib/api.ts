@@ -62,3 +62,6 @@ export const getNodeData = (runId: string, nodeId: string, offset = 0, limit = 2
 
 export const getDownloadUrl = (runId: string, nodeId: string, format: 'csv' | 'xlsx') =>
   `${BASE_URL}/pipelines/runs/${runId}/nodes/${nodeId}/download?format=${format}`
+
+export const getSourcePreview = (sourceId: string, limit = 200) =>
+  api.get(`/sources/${sourceId}/preview`, { params: { limit } }).then(r => r.data)

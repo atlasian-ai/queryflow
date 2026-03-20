@@ -38,6 +38,8 @@ interface PipelineStore {
   onNodesChange: (changes: NodeChange<Node<NodeData>>[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   addNode: (node: Node<NodeData>) => void
+  insertNodeAfterIndex: (node: Node<NodeData>, afterIndex: number) => void
+  removeNode: (nodeId: string) => void
   updateNodeData: (nodeId: string, data: Partial<NodeData>) => void
   renameSlugInAllNodes: (exceptNodeId: string, oldSlug: string, newSlug: string) => void
   setSelectedNode: (nodeId: string | null) => void
@@ -60,11 +62,13 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
 
   setPipeline: (id, name) => set({ pipelineId: id, pipelineName: name }),
 
-  loadFromDB: (dbNodes, dbEdges) => {
-    const nodes: Node<NodeData>[] = dbNodes.map((n) => ({
+  loadFromDB: (dbNodes, _dbEdges) => {
+    // Sort by position_y to restore linear order
+    const sorted = [...dbNodes].sort((a, b) => (a.position_y ?? 0) - (b.position_y ?? 0))
+    const nodes: Node<NodeData>[] = sorted.map((n) => ({
       id: n.id,
       type: 'transformNode',
-      position: { x: n.position_x ?? 100, y: n.position_y ?? 100 },
+      position: { x: 0, y: n.position_y ?? 0 },
       data: {
         label: n.label,
         slug: n.slug,
@@ -74,10 +78,11 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
         sql: n.sql,
       },
     }))
-    const edges: Edge[] = dbEdges.map((e) => ({
-      id: e.id,
-      source: e.source_node_id,
-      target: e.target_node_id,
+    // Auto-compute linear edges from order
+    const edges: Edge[] = nodes.slice(0, -1).map((n, i) => ({
+      id: `e-${n.id}-${nodes[i + 1].id}`,
+      source: n.id,
+      target: nodes[i + 1].id,
     }))
     set({ nodes, edges, isDirty: false })
   },
@@ -88,7 +93,37 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
   onEdgesChange: (changes) =>
     set((state) => ({ edges: applyEdgeChanges(changes, state.edges), isDirty: true })),
 
-  addNode: (node) => set((state) => ({ nodes: [...state.nodes, node], isDirty: true })),
+  addNode: (node) => set((state) => {
+    const nodes = [...state.nodes, node]
+    const edges: Edge[] = nodes.slice(0, -1).map((n, i) => ({
+      id: `e-${n.id}-${nodes[i + 1].id}`,
+      source: n.id,
+      target: nodes[i + 1].id,
+    }))
+    return { nodes, edges, isDirty: true }
+  }),
+
+  insertNodeAfterIndex: (node, afterIndex) => set((state) => {
+    const nodes = [...state.nodes]
+    nodes.splice(afterIndex + 1, 0, node)
+    const edges: Edge[] = nodes.slice(0, -1).map((n, i) => ({
+      id: `e-${n.id}-${nodes[i + 1].id}`,
+      source: n.id,
+      target: nodes[i + 1].id,
+    }))
+    return { nodes, edges, isDirty: true }
+  }),
+
+  removeNode: (nodeId) => set((state) => {
+    const nodes = state.nodes.filter((n) => n.id !== nodeId)
+    const edges: Edge[] = nodes.slice(0, -1).map((n, i) => ({
+      id: `e-${n.id}-${nodes[i + 1].id}`,
+      source: n.id,
+      target: nodes[i + 1].id,
+    }))
+    const selectedNodeId = state.selectedNodeId === nodeId ? null : state.selectedNodeId
+    return { nodes, edges, selectedNodeId, isDirty: true }
+  }),
 
   updateNodeData: (nodeId, data) =>
     set((state) => ({

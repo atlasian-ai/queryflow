@@ -7,7 +7,8 @@ import CodeMirror from '@uiw/react-codemirror'
 import { sql } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { EditorView } from '@codemirror/view'
-import { Wand2, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Wand2, Loader2, ChevronDown, ChevronUp, AlignLeft } from 'lucide-react'
+import { format as formatSQL } from 'sql-formatter'
 import { generateSQL } from '@/lib/api'
 import { usePipelineStore } from '@/store/usePipelineStore'
 
@@ -71,14 +72,27 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
     updateNodeData(nodeId, { sql: value })
   }
 
+  const handleFormatSQL = () => {
+    if (!sqlValue.trim()) return
+    try {
+      const formatted = formatSQL(sqlValue, { language: 'sql', tabWidth: 2, keywordCase: 'upper' })
+      setSqlValue(formatted)
+      updateNodeData(nodeId, { sql: formatted })
+    } catch { /* ignore parse errors */ }
+  }
+
   const handleGenerateSQL = async () => {
     if (!prompt.trim()) return
     setGenerating(true)
     setGenError('')
     try {
       const result = await generateSQL(pipelineId, { prompt, node_id: nodeId })
-      setSqlValue(result.sql)
-      updateNodeData(nodeId, { sql: result.sql, prompt })
+      let generatedSql = result.sql
+      try {
+        generatedSql = formatSQL(result.sql, { language: 'sql', tabWidth: 2, keywordCase: 'upper' })
+      } catch { /* use raw if formatter fails */ }
+      setSqlValue(generatedSql)
+      updateNodeData(nodeId, { sql: generatedSql, prompt })
     } catch (e: unknown) {
       setGenError(e instanceof Error ? e.message : 'Failed to generate SQL')
     } finally {
@@ -161,7 +175,14 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
         <div className="flex flex-col">
           <div className="px-4 py-2.5 flex items-center justify-between border-b bg-slate-50 flex-shrink-0">
             <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">SQL (DuckDB)</span>
-            <span className="text-xs text-slate-400">Edit directly or generate above</span>
+            <button
+              onClick={handleFormatSQL}
+              disabled={!sqlValue.trim()}
+              title="Auto-format SQL"
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-blue-600 disabled:opacity-30 px-2 py-0.5 rounded hover:bg-blue-50 transition-colors"
+            >
+              <AlignLeft size={11} /> Format
+            </button>
           </div>
           <div
             className="overflow-hidden resize-y"

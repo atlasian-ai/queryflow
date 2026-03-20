@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Database, Play, Trash2, LogOut, FolderOpen } from 'lucide-react'
+import { Plus, Database, Play, Trash2, LogOut, FolderOpen, Search } from 'lucide-react'
 import { listPipelines, createPipeline, deletePipeline } from '@/lib/api'
 import { useAuthStore } from '@/store/useAuthStore'
 import type { Pipeline } from '@/types'
@@ -12,11 +12,18 @@ export default function DashboardPage() {
   const { user, logout } = useAuthStore()
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [search, setSearch] = useState('')
 
   const { data: pipelines = [], isLoading } = useQuery<Pipeline[]>({
     queryKey: ['pipelines'],
     queryFn: listPipelines,
   })
+
+  const filteredPipelines = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return pipelines
+    return pipelines.filter((p) => p.name.toLowerCase().includes(q))
+  }, [pipelines, search])
 
   const createMutation = useMutation({
     mutationFn: createPipeline,
@@ -56,7 +63,7 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold text-slate-900">Pipelines</h1>
           <button
             onClick={() => setCreating(true)}
@@ -64,6 +71,17 @@ export default function DashboardPage() {
           >
             <Plus size={16} /> New Pipeline
           </button>
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-4">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search pipelines..."
+            className="w-full pl-8 pr-4 py-2 border rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 placeholder:text-slate-400"
+          />
         </div>
 
         {/* Create form */}
@@ -84,14 +102,16 @@ export default function DashboardPage() {
         {/* Pipeline list */}
         {isLoading ? (
           <p className="text-sm text-slate-500">Loading...</p>
-        ) : pipelines.length === 0 ? (
+        ) : filteredPipelines.length === 0 ? (
           <div className="bg-white border rounded-lg p-12 text-center">
             <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 text-sm">No pipelines yet. Create one to get started.</p>
+            <p className="text-slate-500 text-sm">
+              {search.trim() ? `No pipelines match "${search}"` : 'No pipelines yet. Create one to get started.'}
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
-            {pipelines.map((p) => (
+            {filteredPipelines.map((p) => (
               <div
                 key={p.id}
                 className="bg-white border rounded-lg px-5 py-4 flex items-center justify-between hover:border-blue-300 transition-colors cursor-pointer"

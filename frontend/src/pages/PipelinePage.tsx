@@ -1,20 +1,20 @@
 /**
- * Main pipeline editing page.
- * Layout: header | canvas + right panel | bottom panel
+ * Main pipeline editing page — linear vertical flow.
  */
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Save, Play, Square, ArrowLeft, Database, Loader2 } from 'lucide-react'
-import { getPipeline, savePipeline, triggerRun, getRun, cancelRun } from '@/lib/api'
+import { getPipeline, savePipeline, triggerRun, getRun, cancelRun, listSources } from '@/lib/api'
 import { usePipelineStore } from '@/store/usePipelineStore'
-import type { PipelineDetail, RunDetail } from '@/types'
-import PipelineCanvas from '@/components/canvas/PipelineCanvas'
+import type { PipelineDetail, RunDetail, DataSource } from '@/types'
+import LinearPipelineCanvas from '@/components/canvas/LinearPipelineCanvas'
 import NodeConfigPanel from '@/components/panels/NodeConfigPanel'
 import DataPreviewPanel from '@/components/panels/DataPreviewPanel'
 import RunStatusPanel from '@/components/panels/RunStatusPanel'
 
 const POLL_INTERVAL_MS = 1500
+const STEP_HEIGHT = 120
 
 export default function PipelinePage() {
   const { pipelineId } = useParams<{ pipelineId: string }>()
@@ -25,6 +25,7 @@ export default function PipelinePage() {
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
   const [rightPanelWidth, setRightPanelWidth] = useState(320)
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDraggingPanel = useRef(false)
 
@@ -32,15 +33,21 @@ export default function PipelinePage() {
     nodes, edges,
     selectedNodeId, isDirty,
     setPipeline, loadFromDB, setDirty,
-    setActiveRun, applyRunResult, runStatus,
+    setActiveRun, applyRunResult,
     activeRunId,
   } = usePipelineStore()
 
-  // Load pipeline from API
+  // Load pipeline
   const { data: pipeline, isLoading } = useQuery<PipelineDetail>({
     queryKey: ['pipeline', pipelineId],
     queryFn: () => getPipeline(pipelineId!),
     enabled: Boolean(pipelineId),
+  })
+
+  // Load all data sources
+  const { data: dataSources = [] } = useQuery<DataSource[]>({
+    queryKey: ['sources'],
+    queryFn: listSources,
   })
 
   useEffect(() => {
@@ -50,15 +57,15 @@ export default function PipelinePage() {
     loadFromDB(pipeline.nodes, pipeline.edges)
   }, [pipeline?.id])
 
+  // ── Pipeline rename ──────────────────────────────────────────────
   const handleNameBlur = useCallback(async () => {
     setEditingName(false)
     if (!pipelineId || !nameValue.trim() || nameValue === pipeline?.name) return
     setPipeline(pipelineId, nameValue.trim())
-    try {
-      await savePipeline(pipelineId, { name: nameValue.trim() })
-    } catch { /* silent */ }
+    try { await savePipeline(pipelineId, { name: nameValue.trim() }) } catch { /* silent */ }
   }, [pipelineId, nameValue, pipeline?.name, setPipeline])
 
+  // ── Resizable right panel ────────────────────────────────────────
   const onPanelResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     isDraggingPanel.current = true
@@ -66,8 +73,7 @@ export default function PipelinePage() {
     const startWidth = rightPanelWidth
     const onMouseMove = (e: MouseEvent) => {
       if (!isDraggingPanel.current) return
-      const delta = startX - e.clientX
-      setRightPanelWidth(Math.max(240, Math.min(600, startWidth + delta)))
+      setRightPanelWidth(Math.max(240, Math.min(600, startWidth + (startX - e.clientX))))
     }
     const onMouseUp = () => {
       isDraggingPanel.current = false
@@ -78,14 +84,14 @@ export default function PipelinePage() {
     document.addEventListener('mouseup', onMouseUp)
   }, [rightPanelWidth])
 
-  // ── Save ────────────────────────────────────────────────────────────────────
+  // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!pipelineId) return
     setSaving(true)
     setSaveError('')
     try {
       await savePipeline(pipelineId, {
-        nodes: nodes.map((n) => ({
+        nodes: nodes.map((n, index) => ({
           id: n.id,
           label: n.data.label,
           slug: n.data.slug,
@@ -93,13 +99,14 @@ export default function PipelinePage() {
           data_source_id: n.data.data_source_id,
           prompt: n.data.prompt,
           sql: n.data.sql,
-          position_x: n.position.x,
-          position_y: n.position.y,
+          position_x: 0,
+          position_y: index * STEP_HEIGHT, // encode order as y-position
         })),
-        edges: edges.map((e) => ({
-          id: e.id,
-          source_node_id: e.source,
-          target_node_id: e.target,
+        // Edges are derived from linear order
+        edges: nodes.slice(0, -1).map((n, i) => ({
+          id: `e-${n.id}-${nodes[i + 1].id}`,
+          source_node_id: n.id,
+          target_node_id: nodes[i + 1].id,
         })),
       })
       setDirty(false)
@@ -108,9 +115,9 @@ export default function PipelinePage() {
     } finally {
       setSaving(false)
     }
-  }, [pipelineId, nodes, edges, setDirty])
+  }, [pipelineId, nodes, setDirty])
 
-  // Ctrl+S to save
+  // Ctrl+S
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); handleSave() }
@@ -119,34 +126,22 @@ export default function PipelinePage() {
     return () => window.removeEventListener('keydown', handler)
   }, [handleSave])
 
-  // ── Run ─────────────────────────────────────────────────────────────────────
+  // ── Run ──────────────────────────────────────────────────────────
   const pollRun = useCallback(async (runId: string) => {
     try {
       const run: RunDetail = await getRun(runId)
       applyRunResult(run)
-
-      if (run.status === 'success' || run.status === 'failed') {
+      if (run.status === 'success' || run.status === 'failed' || run.status === 'cancelled') {
         setRunning(false)
         setBottomTab('preview')
         return
       }
-    } catch {
-      // keep polling
-    }
+    } catch { /* keep polling */ }
     pollTimerRef.current = setTimeout(() => pollRun(runId), POLL_INTERVAL_MS)
   }, [applyRunResult])
 
-  const handleStop = useCallback(async () => {
-    if (!activeRunId) return
-    if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
-    try { await cancelRun(activeRunId) } catch { /* ignore */ }
-    setRunning(false)
-    setActiveRun(null)
-  }, [activeRunId, setActiveRun])
-
   const handleRun = useCallback(async () => {
     if (!pipelineId) return
-    // Save first
     await handleSave()
     setRunning(true)
     setBottomTab('log')
@@ -156,15 +151,29 @@ export default function PipelinePage() {
       pollTimerRef.current = setTimeout(() => pollRun(run.id), POLL_INTERVAL_MS)
     } catch (e: unknown) {
       setRunning(false)
-      const msg = e instanceof Error ? e.message : 'Failed to start run'
-      setSaveError(msg)
+      setSaveError(e instanceof Error ? e.message : 'Failed to start run')
     }
   }, [pipelineId, handleSave, setActiveRun, pollRun])
 
+  const handleStop = useCallback(async () => {
+    if (!activeRunId) return
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+    try { await cancelRun(activeRunId) } catch { /* ignore */ }
+    setRunning(false)
+    setActiveRun(null)
+  }, [activeRunId, setActiveRun])
+
   useEffect(() => () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current) }, [])
 
-  // ── Node selection ───────────────────────────────────────────────────────────
+  // ── Node / source selection ───────────────────────────────────────
   const handleNodeClick = useCallback((nodeId: string) => {
+    setSelectedSourceId(null)
+    setBottomTab('preview')
+  }, [])
+
+  const handleSourceClick = useCallback((sourceId: string) => {
+    setSelectedSourceId(sourceId)
+    usePipelineStore.getState().setSelectedNode(null)
     setBottomTab('preview')
   }, [])
 
@@ -183,6 +192,7 @@ export default function PipelinePage() {
       {/* Header */}
       <header className="bg-white border-b px-4 py-2 flex items-center gap-3 flex-shrink-0">
         <Link to="/" className="text-slate-400 hover:text-slate-600"><ArrowLeft size={18} /></Link>
+
         {editingName ? (
           <input
             autoFocus
@@ -201,8 +211,8 @@ export default function PipelinePage() {
             {pipeline?.name}
           </button>
         )}
-        {isDirty && <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">Unsaved</span>}
 
+        {isDirty && <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">Unsaved</span>}
         <div className="flex-1" />
 
         <Link
@@ -243,11 +253,16 @@ export default function PipelinePage() {
 
       {/* Main content */}
       <div className="flex-1 flex min-h-0">
-        {/* Canvas + bottom panel column */}
+        {/* Canvas + bottom panel */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Canvas */}
-          <div className="flex-1 min-h-0">
-            <PipelineCanvas onNodeClick={handleNodeClick} />
+          {/* Linear canvas */}
+          <div className="flex-1 min-h-0 flex">
+            <LinearPipelineCanvas
+              onNodeClick={handleNodeClick}
+              onSourceClick={handleSourceClick}
+              dataSources={dataSources}
+              selectedSourceId={selectedSourceId}
+            />
           </div>
 
           {/* Bottom panel */}
@@ -266,15 +281,18 @@ export default function PipelinePage() {
                   {tab === 'preview' ? 'Data Preview' : 'Run Log'}
                 </button>
               ))}
-              {selectedNode && bottomTab === 'preview' && (
+              {bottomTab === 'preview' && (selectedNode || selectedSourceId) && (
                 <span className="ml-auto px-4 py-2 text-xs text-slate-400 self-center">
-                  {selectedNode.data.label}
+                  {selectedNode
+                    ? selectedNode.data.label
+                    : dataSources.find((d) => d.id === selectedSourceId)?.slug
+                  }
                 </span>
               )}
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
               {bottomTab === 'preview'
-                ? <DataPreviewPanel pipelineId={pipelineId!} />
+                ? <DataPreviewPanel pipelineId={pipelineId!} previewSourceId={selectedSourceId} />
                 : <RunStatusPanel />
               }
             </div>
@@ -284,11 +302,9 @@ export default function PipelinePage() {
         {/* Right panel — node config */}
         {selectedNodeId && (
           <>
-            {/* Drag handle */}
             <div
               onMouseDown={onPanelResizeStart}
               className="w-1 cursor-col-resize bg-slate-200 hover:bg-blue-400 transition-colors flex-shrink-0"
-              title="Drag to resize panel"
             />
             <div
               style={{ width: rightPanelWidth }}

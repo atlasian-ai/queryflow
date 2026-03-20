@@ -158,6 +158,44 @@ async def rename_source(
     return ds
 
 
+@router.get("/{source_id}/preview")
+async def preview_source(
+    source_id: uuid.UUID,
+    limit: int = 200,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(DataSource).where(DataSource.id == source_id, DataSource.user_id == current_user.id))
+    ds = result.scalar_one_or_none()
+    if not ds:
+        raise HTTPException(status_code=404, detail="Data source not found")
+
+    from app.services.storage import download_file
+    raw = download_file(ds.storage_path)
+    df = pd.read_parquet(io.BytesIO(raw))
+    sample = df.head(limit)
+    rows = sample.to_dict(orient="records")
+
+    # Sanitise non-JSON-serialisable values (NaT, NaN, etc.)
+    import math
+    import numpy as np
+
+    def _clean(v):
+        if isinstance(v, float) and math.isnan(v):
+            return None
+        if hasattr(v, 'item'):   # numpy scalar
+            return v.item()
+        return v
+
+    rows = [{k: _clean(v) for k, v in row.items()} for row in rows]
+
+    return {
+        "rows": rows,
+        "row_count": ds.row_count,
+        "column_schema": ds.column_schema,
+    }
+
+
 @router.delete("/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_source(
     source_id: uuid.UUID,
