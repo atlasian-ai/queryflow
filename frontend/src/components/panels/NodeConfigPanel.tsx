@@ -39,7 +39,17 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
     setLabel(node.data.label)
     setSlug(node.data.slug)
     setPrompt(node.data.prompt ?? '')
-    setSqlValue(node.data.sql ?? '')
+    // Auto-format SQL when switching to a node that already has SQL
+    const raw = node.data.sql ?? ''
+    if (raw.trim()) {
+      try {
+        setSqlValue(formatSQL(raw, { language: 'sql', tabWidth: 2, keywordCase: 'upper' }))
+      } catch {
+        setSqlValue(raw)
+      }
+    } else {
+      setSqlValue(raw)
+    }
   }, [nodeId, node?.data.label, node?.data.prompt, node?.data.sql])
 
   if (!node) return null

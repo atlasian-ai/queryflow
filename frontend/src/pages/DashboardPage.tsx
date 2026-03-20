@@ -5,6 +5,7 @@ import { Plus, Database, Play, Trash2, LogOut, FolderOpen, Search } from 'lucide
 import { listPipelines, createPipeline, deletePipeline } from '@/lib/api'
 import { useAuthStore } from '@/store/useAuthStore'
 import type { Pipeline } from '@/types'
+import QueryFlowLogo from '@/components/QueryFlowLogo'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -48,7 +49,12 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="bg-white border-b px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <span className="font-semibold text-slate-900">QueryFlow</span>
+          <div className="flex items-center gap-2.5">
+            <QueryFlowLogo size={30} idSuffix="dash-header" />
+            <span className="font-bold text-slate-900 text-base tracking-tight">
+              Query<span className="text-blue-600">Flow</span>
+            </span>
+          </div>
           <nav className="flex gap-4 text-sm">
             <span className="text-blue-600 font-medium">Pipelines</span>
             <Link to="/sources" className="text-slate-500 hover:text-slate-900">Data Sources</Link>

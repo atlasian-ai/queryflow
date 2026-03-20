@@ -10,15 +10,16 @@
 |---|---|
 | React | 18, with TypeScript |
 | Vite | Build tool and dev server |
-| @xyflow/react | v12 — pipeline canvas, node/edge rendering |
 | Zustand | Client-side state (pipeline canvas state, auth) |
 | TanStack Query | Server state, data fetching, caching |
 | CodeMirror 6 | SQL editor; `@codemirror/lang-sql` + `@uiw/codemirror-theme-one-dark` |
+| sql-formatter | SQL auto-indentation (applied on generate and via Format button) |
 | Tailwind CSS | Utility-first styling |
 | AG Grid Community | Data preview table (free tier) |
 | Lucide React | Icon set |
 | Axios | HTTP client; base URL configured from `VITE_API_URL` |
 | Supabase JS SDK | Auth session management only — all data goes through FastAPI |
+| uuid | Client-side UUID generation for new nodes |
 
 ### Backend
 
@@ -91,7 +92,7 @@ queryflow/
 │       │   ├── auth.py              # POST /auth/sync, GET /auth/me
 │       │   ├── pipelines.py         # Pipeline + node + edge CRUD; POST generate-sql
 │       │   ├── runs.py              # Run trigger, cancel, status poll, data fetch, download
-│       │   └── sources.py           # Data source upload, list, get, rename, delete
+│       │   └── sources.py           # Data source upload, list, get, rename, preview, delete
 │       ├── services/
 │       │   ├── __init__.py
 │       │   ├── execution.py         # DuckDB execution engine: topological_sort, execute_node,
@@ -120,29 +121,35 @@ queryflow/
 │       ├── types/
 │       │   └── index.ts             # All TypeScript types mirroring backend schemas
 │       ├── lib/
-│       │   ├── api.ts               # Axios instance + all API call functions
+│       │   ├── api.ts               # Axios instance + all API call functions (incl. getSourcePreview)
 │       │   └── supabase.ts          # Supabase client (auth only)
 │       ├── store/
 │       │   ├── useAuthStore.ts      # Zustand auth store + useAuthInit hook
-│       │   └── usePipelineStore.ts  # Zustand pipeline canvas store
+│       │   └── usePipelineStore.ts  # Zustand pipeline store (nodes, edges, run state, slug rename)
 │       ├── pages/
-│       │   ├── LoginPage.tsx        # Supabase email/password login form
-│       │   ├── DashboardPage.tsx    # Pipeline list; create/delete pipelines
-│       │   ├── PipelinePage.tsx     # Main pipeline editor page; orchestrates all panels
+│       │   ├── LoginPage.tsx        # Split-pane sign-in/sign-up; brand panel + form; QueryFlow logo
+│       │   ├── DashboardPage.tsx    # Pipeline list with search; create/delete; QueryFlow logo in header
+│       │   ├── PipelinePage.tsx     # Main pipeline editor; logo in header; run summary dialog
 │       │   └── SourcesPage.tsx      # Data source management (upload, rename, delete)
 │       └── components/
+│           ├── QueryFlowLogo.tsx    # SVG logo mark + QueryFlowWordmark composite component
 │           ├── canvas/
-│           │   ├── PipelineCanvas.tsx  # @xyflow/react ReactFlow wrapper; dot grid; controls
-│           │   └── TransformNode.tsx   # Custom node component; status badge; row count
+│           │   └── LinearPipelineCanvas.tsx  # Workato-style vertical step list; dot connectors;
+│           │                                  #   data source chips; add/delete dialogs
 │           └── panels/
-│               ├── NodeConfigPanel.tsx  # Right panel: label/slug/prompt/SQL editing; generate SQL button
-│               ├── RunStatusPanel.tsx   # Bottom panel: run button, stop button, per-node status list
-│               └── DataPreviewPanel.tsx # Bottom panel: AG Grid table showing node result rows
+│               ├── NodeConfigPanel.tsx  # Right panel: label/slug/prompt/SQL editing; generate SQL;
+│               │                        #   Format button (sql-formatter); auto-format on generate
+│               ├── RunStatusPanel.tsx   # Bottom log tab: per-node status list
+│               └── DataPreviewPanel.tsx # Bottom preview tab: AG Grid for node output OR source preview
 ```
 
 ---
 
 ## Key Architectural Decisions
+
+### Linear Canvas vs. Free-Form DAG
+
+The original design used @xyflow/react for a free-form drag-and-drop canvas. This was replaced with a simpler vertical list (Workato-style). The reason: accountants think in sequential steps, not graphs. A top-to-bottom linear editor is far more intuitive for the target audience. Pipeline order is encoded as `position_y = index × 120` on save, and restored by sorting on `position_y` on load. Edges are automatically recomputed from array order — no manual edge management is needed.
 
 ### Why DuckDB
 
@@ -151,31 +158,34 @@ DuckDB is an in-process analytical SQL engine. No separate database server is ne
 - Execute arbitrary SELECT queries against those views
 - Return the result as a DataFrame
 
-This allows upstream node outputs to be wired directly to downstream nodes during a single run without round-tripping through any storage system until the node completes. The alternative (shipping data through PostgreSQL or a dedicated warehouse) would require schema management per-pipeline and per-run, which is impractical for a dynamic user-defined pipeline system.
+This allows upstream node outputs to be wired directly to downstream nodes during a single run without round-tripping through any storage system until the node completes.
 
 DuckDB also supports the full range of SQL features accountants need: CTEs, window functions, PIVOT/UNPIVOT, REGEXP, and Postgres-compatible syntax.
 
 ### Why Celery
 
-Pipeline execution is long-running and must not block the FastAPI event loop. Celery with Redis allows the API to accept a run request, create a database record, enqueue a task, and return immediately (HTTP 202). The Celery worker picks up the task and updates the database directly as each node completes. The frontend polls for status.
+Pipeline execution is long-running and must not block the FastAPI event loop. Celery with Redis allows the API to accept a run request, create a database record, enqueue a task, and return immediately (HTTP 202). The Celery worker picks up the task and updates the database directly as each node completes. The frontend polls for status every 1.5 seconds.
 
-A synchronous Celery task is intentional: DuckDB and the Supabase Storage SDK are synchronous libraries, and managing async context in a Celery task adds complexity with no benefit.
+### Slug Cascade Rename
 
-### Why a Single Node Type
+When a node label or data source slug is renamed, all downstream SQL in the same pipeline that references the old slug is automatically updated using a word-boundary regex (`(?<![a-z0-9_])old_slug(?![a-z0-9_])`). This happens:
+- Client-side in `usePipelineStore.renameSlugInAllNodes` (for node renames — immediate, no round-trip)
+- Server-side in `sources.py PATCH` (for data source renames — persisted across all pipeline nodes in the DB)
 
-Early designs had separate "source" and "transform" node types. This was collapsed into a single node type where every node can optionally reference an uploaded data source (via `data_source_id`) or write arbitrary SQL. Having one node component to maintain reduces complexity. The node's behaviour is determined by whether it has upstream edges and whether a `data_source_id` is set, not by a hard-coded type enum (though `node_type` still exists in the DB for potential future use).
+### SQL Auto-Formatting
 
-### Why the Backend Serves Storage Reads
+All SQL is formatted using `sql-formatter` with DuckDB-compatible settings (standard SQL dialect, 2-space indent, UPPERCASE keywords). This is applied:
+- Automatically when Generate SQL returns a result
+- On demand via the Format button in the node config panel
+- On every load from the database (via the `handleSqlChange` pathway when the component mounts with existing SQL)
 
-Supabase Storage is configured as a private bucket. Presigned URLs were considered but dropped: they expire, they require an extra round-trip to generate, and they expose Supabase internals to the frontend. Instead, the backend streams file bytes directly to the download endpoint, which keeps the auth boundary clear (all access goes through the FastAPI JWT check).
+### Source Data Preview
+
+Uploaded data source files (stored as Parquet in Supabase Storage) can be previewed directly without running a pipeline. `GET /api/sources/{id}/preview` downloads the Parquet from storage, reads it with Pandas, and returns the first 200 rows + column schema as JSON. NaN and numpy scalar types are sanitised before serialisation.
 
 ### Why psycopg2 in Celery
 
 SQLAlchemy async with asyncpg cannot be used in a synchronous Celery task without running an event loop manually. Using the sync psycopg2 driver inside Celery tasks is the standard pattern. The connection URL is rewritten at task startup: `postgresql+asyncpg://` is replaced with `postgresql://` and asyncpg-specific query params (e.g. `statement_cache_size`) are stripped.
-
-### Canvas State Storage
-
-The `@xyflow/react` viewport (zoom, pan position) is persisted in the `pipelines.canvas_state` JSONB column. Nodes and edges are stored in their own tables for relational integrity. When the pipeline loads, `usePipelineStore.loadFromDB` reconstructs the `@xyflow/react` node/edge format from the database rows.
 
 ---
 
@@ -184,7 +194,7 @@ The `@xyflow/react` viewport (zoom, pan position) is persisted in the `pipelines
 All tables use UUIDs as primary keys. All timestamps are timezone-aware.
 
 ### `users`
-Internal user record. Created on first login via `POST /auth/sync`. `supabase_id` links to the Supabase Auth `auth.users` table. `role` is `admin` for the first user ever created, `member` for all subsequent users.
+Internal user record. Created on first login via `POST /auth/sync`. `supabase_id` links to the Supabase Auth `auth.users` table.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -213,7 +223,6 @@ Represents an uploaded CSV or XLSX file. The raw file is converted to Parquet on
 | created_at | TIMESTAMPTZ | |
 
 ### `pipelines`
-Top-level pipeline container. `canvas_state` stores the @xyflow/react viewport JSON so pan/zoom is restored on reload.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -221,12 +230,12 @@ Top-level pipeline container. `canvas_state` stores the @xyflow/react viewport J
 | user_id | UUID FK → users | |
 | name | VARCHAR(255) | |
 | description | TEXT | nullable |
-| canvas_state | JSONB | @xyflow/react viewport state |
+| canvas_state | JSONB | reserved; linear order encoded in position_y instead |
 | created_at | TIMESTAMPTZ | |
 | updated_at | TIMESTAMPTZ | |
 
 ### `pipeline_nodes`
-A single transform step on the canvas. `slug` is the DuckDB view name for this node's output. `node_type` is always `transform` currently but was kept for extensibility.
+A single transform step. `slug` is the DuckDB view name for this node's output. `position_y = index × 120` encodes the step's order in the linear sequence.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -235,16 +244,16 @@ A single transform step on the canvas. `slug` is the DuckDB view name for this n
 | label | VARCHAR(255) | display name |
 | slug | VARCHAR(255) | DuckDB view alias |
 | node_type | VARCHAR(50) | `source` or `transform` |
-| data_source_id | UUID FK → data_sources | nullable; set for source-type nodes |
+| data_source_id | UUID FK → data_sources | nullable |
 | prompt | TEXT | natural language prompt |
 | sql | TEXT | DuckDB SQL |
-| position_x | FLOAT | canvas X coordinate |
-| position_y | FLOAT | canvas Y coordinate |
+| position_x | FLOAT | always 0 (linear layout) |
+| position_y | FLOAT | index × 120; encodes step order |
 | created_at | TIMESTAMPTZ | |
 | updated_at | TIMESTAMPTZ | |
 
 ### `pipeline_edges`
-Directed edge between two nodes in the same pipeline. CASCADE DELETE from both the pipeline and either node.
+Directed edge between two adjacent nodes. Recomputed from array order on every save.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -255,7 +264,6 @@ Directed edge between two nodes in the same pipeline. CASCADE DELETE from both t
 | created_at | TIMESTAMPTZ | |
 
 ### `pipeline_runs`
-One execution of a full pipeline. Celery worker updates `status`, `started_at`, `completed_at`, and `error_message` directly.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -263,13 +271,12 @@ One execution of a full pipeline. Celery worker updates `status`, `started_at`, 
 | pipeline_id | UUID FK → pipelines (CASCADE DELETE) | |
 | triggered_by | UUID FK → users | |
 | status | VARCHAR(50) | `pending`, `running`, `success`, `failed`, `cancelled` |
-| error_message | TEXT | nullable; set on failure |
+| error_message | TEXT | nullable |
 | started_at | TIMESTAMPTZ | nullable |
 | completed_at | TIMESTAMPTZ | nullable |
 | created_at | TIMESTAMPTZ | |
 
 ### `node_results`
-Per-node outcome for a specific run. `preview_rows` stores the first 200 result rows as JSONB to avoid a Storage round-trip for the data preview panel. `storage_path` points to the full Parquet file in Supabase Storage.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -289,23 +296,24 @@ Per-node outcome for a specific run. `preview_rows` stores the first 200 result 
 
 ## API Endpoints
 
-All endpoints require a Supabase JWT in the `Authorization: Bearer <token>` header, except where noted.
+All endpoints require a Supabase JWT in the `Authorization: Bearer <token>` header.
 
 ### Auth
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/auth/sync` | Upsert user record from Supabase session (no auth required — JWT not yet issued at first call) |
+| POST | `/auth/sync` | Upsert user record from Supabase session |
 | GET | `/auth/me` | Return current user profile |
 
 ### Data Sources
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/sources` | Upload CSV or XLSX file (multipart); converts to Parquet; returns DataSourceOut |
+| POST | `/api/sources` | Upload CSV or XLSX file (multipart); converts to Parquet |
 | GET | `/api/sources` | List all data sources for current user |
 | GET | `/api/sources/{source_id}` | Get a single data source |
-| PATCH | `/api/sources/{source_id}` | Rename source (name and/or slug) |
+| GET | `/api/sources/{source_id}/preview` | Preview first 200 rows of a source (reads Parquet from Storage) |
+| PATCH | `/api/sources/{source_id}` | Rename source (name and/or slug); cascades slug to all pipeline node SQL |
 | DELETE | `/api/sources/{source_id}` | Delete source record and Supabase Storage file |
 
 ### Pipelines
@@ -323,12 +331,12 @@ All endpoints require a Supabase JWT in the `Authorization: Bearer <token>` head
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/pipelines/{pipeline_id}/run` | Trigger a new run (returns 202, enqueues Celery task) |
+| POST | `/api/pipelines/{pipeline_id}/run` | Trigger a new run (202, enqueues Celery task) |
 | GET | `/api/pipelines/{pipeline_id}/runs` | List last 50 runs for a pipeline |
 | GET | `/api/pipelines/runs/{run_id}` | Get run with per-node results |
 | POST | `/api/pipelines/runs/{run_id}/cancel` | Cancel a pending or running run |
 | GET | `/api/pipelines/runs/{run_id}/nodes/{node_id}/data` | Get paginated node result rows |
-| GET | `/api/pipelines/runs/{run_id}/nodes/{node_id}/download` | Download result as CSV or XLSX (`?format=csv\|xlsx`) |
+| GET | `/api/pipelines/runs/{run_id}/nodes/{node_id}/download` | Download result as CSV or XLSX |
 
 ---
 
@@ -338,26 +346,27 @@ All endpoints require a Supabase JWT in the `Authorization: Bearer <token>` head
 
 **`useAuthStore`** (`src/store/useAuthStore.ts`)
 - Holds `user: User | null` and `loading: boolean`
-- `useAuthInit()` hook wires up `supabase.auth.getSession()` and `onAuthStateChange`; on each auth event it calls `POST /auth/sync` to get the backend user record and stores it
-- No TanStack Query involvement for auth — pure Zustand + Supabase SDK
+- `useAuthInit()` hook wires up `supabase.auth.getSession()` and `onAuthStateChange`; on each auth event it calls `POST /auth/sync` and stores the backend user record
 
 **`usePipelineStore`** (`src/store/usePipelineStore.ts`)
-- Holds the active pipeline's canvas state: `nodes`, `edges`, `selectedNodeId`, `isDirty`
-- Also holds active run state: `activeRunId`, `runStatus`, `nodeResults`
-- `loadFromDB(dbNodes, dbEdges)` — transforms backend node/edge rows into @xyflow/react format
-- `applyRunResult(run)` — merges `NodeResult` data (status, rowCount, errorMessage) into node data so the `TransformNode` component renders the correct badge
-- `updateNodeData(nodeId, partial)` — used by `NodeConfigPanel` to update label, slug, prompt, SQL in real time; sets `isDirty = true`
-- `onNodesChange` / `onEdgesChange` — wired directly to @xyflow/react change handlers; sets `isDirty = true`
+- Holds active pipeline canvas state: `nodes`, `edges`, `selectedNodeId`, `isDirty`
+- Holds active run state: `activeRunId`, `runStatus`, `nodeResults`
+- `loadFromDB(dbNodes, dbEdges)` — sorts nodes by `position_y`, maps to internal format, auto-computes linear edges
+- `insertNodeAfterIndex(node, afterIndex)` — splices a new node into the array at a specific position and recomputes edges
+- `removeNode(nodeId)` — removes a node and recomputes edges; clears `selectedNodeId` if the removed node was selected
+- `applyRunResult(run)` — merges `NodeResult` data (status, rowCount, errorMessage) into node data
+- `updateNodeData(nodeId, partial)` — real-time node field updates; sets `isDirty = true`
+- `renameSlugInAllNodes(exceptNodeId, oldSlug, newSlug)` — word-boundary regex replace of slug references in all other nodes' SQL
 
-### TanStack Query
+### TanStack Query Keys
 
-Used for all server data that is not canvas state:
-- Pipeline list (DashboardPage)
-- Data sources list (SourcesPage, NodeConfigPanel)
-- Run list and run detail (RunStatusPanel — polls every 2 seconds while run is active)
-- Node result data for preview (DataPreviewPanel)
-
-TanStack Query handles caching, background refetch, and loading/error states. Mutations (save pipeline, trigger run, upload source) use `useMutation` with `onSuccess` callbacks to invalidate relevant query keys.
+| Query Key | Fetched By | Used In |
+|---|---|---|
+| `['pipeline', id]` | `getPipeline` | PipelinePage |
+| `['pipelines']` | `listPipelines` | DashboardPage |
+| `['sources']` | `listSources` | PipelinePage, SourcesPage |
+| `['source-preview', id]` | `getSourcePreview` | DataPreviewPanel |
+| `['node-data', runId, nodeId]` | `getNodeData` | DataPreviewPanel |
 
 ---
 
@@ -370,27 +379,23 @@ TanStack Query handles caching, background refetch, and loading/error states. Mu
 - Dockerfile: `python:3.12-slim`; installs `requirements.txt`; entrypoint `start.sh`
 - `start.sh` runs: `alembic upgrade head` → `celery worker --concurrency=2 &` → `uvicorn` (foreground)
 - Both the FastAPI server and the Celery worker run in the same container
-- Port: Railway-injected `PORT` env var (default 8000)
 - Required env vars: `SUPABASE_URL`, `SUPABASE_JWT_SECRET`, `SUPABASE_SERVICE_KEY`, `DATABASE_URL`, `REDIS_URL`, `ANTHROPIC_API_KEY`, `FRONTEND_URL`
 
 **Frontend service**
 - Root: `frontend/`
 - Multi-stage Dockerfile: stage 1 `node:20-alpine` runs `npm run build`; stage 2 `nginx:alpine` serves `dist/`
-- `nginx.conf`: `try_files $uri $uri/ /index.html` for SPA routing; `/api/` proxied to backend (if using Railway internal networking)
 - Required env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL`
 
 **Redis service**
-- Railway managed Redis
-- `REDIS_URL` is injected into the backend service automatically by Railway when linked
+- Railway managed Redis; `REDIS_URL` is injected into the backend service automatically when linked
 
 ### Supabase
 
 - **Auth**: Email/password provider enabled. JWT secret from Project Settings > JWT used as `SUPABASE_JWT_SECRET`.
-- **Database**: PostgreSQL connected via the Session Mode connection pooler URL (port 6543). The `?pgbouncer=true` parameter is included in `DATABASE_URL`. Alembic runs against this URL on every deploy.
+- **Database**: PostgreSQL connected via the Session Mode connection pooler URL (port 6543). The `?pgbouncer=true` parameter is included in `DATABASE_URL`. Alembic runs on every deploy.
 - **Storage**: Private bucket `queryflow-files`. Layout:
   - `sources/{user_id}/{source_id}.parquet` — uploaded data sources
   - `runs/{run_id}/{node_id}.parquet` — node execution results
-  - Accessed exclusively via the service role key in the backend; never exposed to the frontend directly.
 
 ---
 
@@ -403,29 +408,25 @@ Celery workers cannot use the asyncpg driver. The `_get_db_session()` function i
 Pandas `datetime64` columns cause JSON serialisation errors when stored as JSONB. Fixed in `execute_node`: all datetime columns in the preview DataFrame are cast to `str` before calling `.to_dict(orient="records")`.
 
 **Slug uniqueness on upload**
-If a user uploads two files with the same name (or names that slugify to the same string), the second slug collides. Fixed with `_unique_slug(base, existing)` in `sources.py` which appends `_1`, `_2`, etc.
+If a user uploads two files with the same name, `_unique_slug(base, existing)` in `sources.py` appends `_1`, `_2`, etc.
 
 **Pipeline save replacing nodes**
-The `PUT /api/pipelines/{id}` endpoint deletes all existing nodes and re-inserts them. This is intentional (the frontend sends the full canvas state on every save), but it means node UUIDs must be stable — the frontend generates UUIDs client-side and sends them in `payload.nodes[].id` so the IDs survive round-trips.
+The `PUT /api/pipelines/{id}` endpoint deletes all existing nodes and re-inserts them. Node UUIDs are generated client-side and sent in the payload so they survive round-trips.
 
-**DuckDB view naming collision**
-Data source slugs and node slugs share the same DuckDB connection namespace within a run. Naming conflicts are prevented by enforcing unique slugs per user at upload time and auto-slugifying node labels. No runtime collision detection exists currently — duplicate slugs would silently overwrite views.
-
-**CORS on Railway**
-The FastAPI CORS middleware allows `FRONTEND_URL` (from env) plus any comma-separated URLs in `EXTRA_ORIGINS`. During development, `http://localhost:5173` needs to be added to `EXTRA_ORIGINS` or set as `FRONTEND_URL`.
+**NaN/numpy types in source preview**
+`pd.read_parquet().to_dict()` can produce `float('nan')` and numpy scalar types that JSON cannot serialise. Fixed in `GET /api/sources/{id}/preview` with a `_clean(v)` helper that replaces NaN with `None` and calls `.item()` on numpy scalars.
 
 ---
 
 ## Future Improvements
 
-- **Incremental execution**: Only re-run nodes whose SQL or upstream data has changed since the last successful run, rather than always running the full pipeline.
-- **Scheduled runs**: Cron-triggered pipeline execution (e.g. daily at 9 AM) using Celery Beat.
-- **Column picker UI**: Show available column names as autocomplete when writing SQL, sourced from `column_schema` of upstream nodes.
-- **Multi-output nodes**: Allow a node to expose multiple named outputs (e.g. filtered vs. full dataset) for different downstream branches.
-- **Row limit increase / streaming**: Currently capped at 500,000 rows. Streaming Parquet reads via PyArrow would allow larger result sets without loading the full DataFrame into memory.
-- **Shareable pipelines**: Read-only pipeline sharing via a public URL, with view-only access to run results.
-- **Node templates**: Pre-built node templates for common accounting tasks (e.g. trial balance, variance analysis, ageing report).
-- **DuckDB view name collision detection**: Validate at save time that no two nodes in the same pipeline share a slug.
-- **Celery revoke on cancel**: Currently cancel only sets the DB status to `cancelled` — it does not revoke the Celery task if it is already running. A true stop would require storing the Celery task ID and calling `celery_app.control.revoke(task_id, terminate=True)`.
-- **Preview row pagination in UI**: The DataPreviewPanel currently fetches the first 200 rows (inline). Add next/prev page controls that hit the paginated `GET .../data?offset=N` endpoint for larger result sets.
-- **Audit log**: Track who ran what pipeline and when, for compliance in accounting contexts.
+- **Incremental execution**: Only re-run steps whose SQL or upstream data has changed since the last successful run.
+- **Scheduled runs**: Cron-triggered pipeline execution using Celery Beat.
+- **Column picker UI**: Show available column names as autocomplete in the SQL editor, sourced from upstream `column_schema`.
+- **Multi-branch pipelines**: Allow a step to fan out to multiple downstream branches (currently linear only).
+- **Row limit increase / streaming**: Currently capped at 500,000 rows. Streaming Parquet reads via PyArrow would support larger files.
+- **Shareable pipelines**: Read-only sharing via a public URL.
+- **Node templates**: Pre-built step templates for common accounting tasks (trial balance, variance analysis, ageing report).
+- **Celery revoke on cancel**: Currently cancel only sets DB status; does not revoke an already-running Celery task.
+- **Preview row pagination**: Add next/prev page controls in DataPreviewPanel hitting the `?offset=N` endpoint.
+- **Audit log**: Track who ran what pipeline and when, for compliance.

@@ -132,7 +132,9 @@ export default function LinearPipelineCanvas({
         {/* Connector from sources to first node */}
         {dataSources.length > 0 && (
           <div className="flex flex-col items-center my-1">
-            <div className="w-px h-6 bg-slate-700" />
+            <div className="w-px h-4 bg-slate-700" />
+            <div className="w-2 h-2 rounded-full border-2 border-slate-600 bg-slate-900 flex-shrink-0" />
+            <div className="w-px h-4 bg-slate-700" />
           </div>
         )}
 
@@ -224,9 +226,18 @@ export default function LinearPipelineCanvas({
 
                 {/* Connector + Add button between nodes */}
                 <div className="flex flex-col items-center my-0.5">
+                  {/* Line + dot */}
                   <div className="w-px h-3 bg-slate-700" />
+                  <div className="w-2 h-2 rounded-full border-2 border-slate-600 bg-slate-900 flex-shrink-0" />
+                  <div className="w-px h-2 bg-slate-700" />
                   <AddButton onClick={() => openAddDialog(index)} />
-                  {index < nodes.length - 1 && <div className="w-px h-3 bg-slate-700" />}
+                  {index < nodes.length - 1 && (
+                    <>
+                      <div className="w-px h-2 bg-slate-700" />
+                      <div className="w-2 h-2 rounded-full border-2 border-slate-600 bg-slate-900 flex-shrink-0" />
+                      <div className="w-px h-3 bg-slate-700" />
+                    </>
+                  )}
                 </div>
               </React.Fragment>
             )

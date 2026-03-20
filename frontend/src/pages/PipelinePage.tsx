@@ -4,7 +4,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Save, Play, Square, ArrowLeft, Database, Loader2 } from 'lucide-react'
+import { Save, Play, Square, Database, Loader2 } from 'lucide-react'
+import QueryFlowLogo from '@/components/QueryFlowLogo'
 import { getPipeline, savePipeline, triggerRun, getRun, cancelRun, listSources } from '@/lib/api'
 import { usePipelineStore } from '@/store/usePipelineStore'
 import type { PipelineDetail, RunDetail, DataSource } from '@/types'
@@ -26,6 +27,8 @@ export default function PipelinePage() {
   const [nameValue, setNameValue] = useState('')
   const [rightPanelWidth, setRightPanelWidth] = useState(320)
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
+  const [runSummary, setRunSummary] = useState<{ succeeded: number; failed: number; durationMs: number } | null>(null)
+  const runStartRef = useRef<number | null>(null)
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDraggingPanel = useRef(false)
 
@@ -134,6 +137,13 @@ export default function PipelinePage() {
       if (run.status === 'success' || run.status === 'failed' || run.status === 'cancelled') {
         setRunning(false)
         setBottomTab('preview')
+        // Build completion summary
+        if (run.status !== 'cancelled') {
+          const durationMs = runStartRef.current ? Date.now() - runStartRef.current : 0
+          const succeeded = run.node_results.filter((nr) => nr.status === 'success').length
+          const failed = run.node_results.filter((nr) => nr.status === 'failed').length
+          setRunSummary({ succeeded, failed, durationMs })
+        }
         return
       }
     } catch { /* keep polling */ }
@@ -145,6 +155,7 @@ export default function PipelinePage() {
     await handleSave()
     setRunning(true)
     setBottomTab('log')
+    runStartRef.current = Date.now()
     try {
       const run = await triggerRun(pipelineId)
       setActiveRun(run.id)
@@ -191,7 +202,13 @@ export default function PipelinePage() {
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
       {/* Header */}
       <header className="bg-white border-b px-4 py-2 flex items-center gap-3 flex-shrink-0">
-        <Link to="/" className="text-slate-400 hover:text-slate-600"><ArrowLeft size={18} /></Link>
+        <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-slate-700 transition-colors group">
+          <QueryFlowLogo size={26} idSuffix="pipeline-header" />
+          <span className="hidden sm:block font-bold text-sm text-slate-700 tracking-tight group-hover:text-slate-900">
+            Query<span className="text-blue-600">Flow</span>
+          </span>
+        </Link>
+        <span className="text-slate-300 text-lg font-light select-none">/</span>
 
         {editingName ? (
           <input
@@ -315,6 +332,57 @@ export default function PipelinePage() {
           </>
         )}
       </div>
+
+      {/* ── Run completion summary dialog ─────────────────────────── */}
+      {runSummary && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-7 w-80 text-center">
+            {/* Icon */}
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              runSummary.failed === 0 ? 'bg-green-100' : 'bg-amber-100'
+            }`}>
+              {runSummary.failed === 0
+                ? <span className="text-3xl">✓</span>
+                : <span className="text-3xl">⚠</span>
+              }
+            </div>
+
+            <h3 className={`text-lg font-bold mb-1 ${runSummary.failed === 0 ? 'text-green-700' : 'text-amber-700'}`}>
+              {runSummary.failed === 0 ? 'Pipeline complete!' : 'Completed with errors'}
+            </h3>
+
+            {/* Stats */}
+            <div className="flex justify-center gap-6 my-5">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-slate-800">{runSummary.succeeded}</p>
+                <p className="text-xs text-slate-500 mt-0.5">step{runSummary.succeeded !== 1 ? 's' : ''} passed</p>
+              </div>
+              {runSummary.failed > 0 && (
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-red-600">{runSummary.failed}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">step{runSummary.failed !== 1 ? 's' : ''} failed</p>
+                </div>
+              )}
+              <div className="text-center">
+                <p className="text-2xl font-bold text-slate-800">
+                  {runSummary.durationMs < 1000
+                    ? `${runSummary.durationMs}ms`
+                    : `${(runSummary.durationMs / 1000).toFixed(1)}s`
+                  }
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">total time</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setRunSummary(null)}
+              className="w-full bg-slate-900 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-slate-700 transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
