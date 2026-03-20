@@ -9,7 +9,7 @@ import 'ag-grid-community/styles/ag-grid.css'
 import 'ag-grid-community/styles/ag-theme-alpine.css'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
-import { getNodeData, getDownloadUrl, getSourcePreview } from '@/lib/api'
+import { getNodeData, downloadNodeResult, getSourcePreview } from '@/lib/api'
 import { usePipelineStore } from '@/store/usePipelineStore'
 
 interface Props {
@@ -165,18 +165,18 @@ export default function DataPreviewPanel({ pipelineId: _pipelineId, previewSourc
           )}
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href={getDownloadUrl(activeRunId, selectedNodeId, 'csv')}
+          <button
+            onClick={() => downloadNodeResult(activeRunId, selectedNodeId, 'csv')}
             className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 px-2 py-1 border rounded hover:bg-white"
           >
             <Download size={12} /> CSV
-          </a>
-          <a
-            href={getDownloadUrl(activeRunId, selectedNodeId, 'xlsx')}
+          </button>
+          <button
+            onClick={() => downloadNodeResult(activeRunId, selectedNodeId, 'xlsx')}
             className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 px-2 py-1 border rounded hover:bg-white"
           >
             <Download size={12} /> Excel
-          </a>
+          </button>
         </div>
       </div>
 

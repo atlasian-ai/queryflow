@@ -67,7 +67,7 @@ async def get_pipeline(
     })
 
 
-@router.put("/{pipeline_id}", response_model=PipelineDetail)
+@router.put("/{pipeline_id}")
 async def save_pipeline(
     pipeline_id: uuid.UUID,
     payload: PipelineSave,
@@ -84,10 +84,13 @@ async def save_pipeline(
         pipeline.canvas_state = payload.canvas_state
 
     if payload.nodes is not None:
-        # Replace all nodes
-        existing_nodes = (await db.execute(select(PipelineNode).where(PipelineNode.pipeline_id == pipeline_id))).scalars().all()
+        # Delete all existing nodes — CASCADE removes their edges too
+        existing_nodes = (
+            await db.execute(select(PipelineNode).where(PipelineNode.pipeline_id == pipeline_id))
+        ).scalars().all()
         for n in existing_nodes:
             await db.delete(n)
+        # Flush node deletions first so FK constraints are clean before re-inserting
         await db.flush()
 
         for n in payload.nodes:
@@ -103,13 +106,11 @@ async def save_pipeline(
                 position_x=n.position_x,
                 position_y=n.position_y,
             ))
-
-    if payload.edges is not None:
-        existing_edges = (await db.execute(select(PipelineEdge).where(PipelineEdge.pipeline_id == pipeline_id))).scalars().all()
-        for e in existing_edges:
-            await db.delete(e)
+        # Flush nodes so edges can reference them via FK
         await db.flush()
 
+    if payload.edges is not None:
+        # Edges were already cascade-deleted with nodes above; just insert the new ones
         for e in payload.edges:
             db.add(PipelineEdge(
                 id=uuid.UUID(e.id),
@@ -117,13 +118,9 @@ async def save_pipeline(
                 source_node_id=uuid.UUID(e.source_node_id),
                 target_node_id=uuid.UUID(e.target_node_id),
             ))
+        await db.flush()
 
-    await db.flush()
-    await db.refresh(pipeline)
-
-    nodes = (await db.execute(select(PipelineNode).where(PipelineNode.pipeline_id == pipeline_id))).scalars().all()
-    edges_db = (await db.execute(select(PipelineEdge).where(PipelineEdge.pipeline_id == pipeline_id))).scalars().all()
-    return PipelineDetail.model_validate({**pipeline.__dict__, "nodes": nodes, "edges": edges_db})
+    return {"ok": True}
 
 
 @router.delete("/{pipeline_id}", status_code=status.HTTP_204_NO_CONTENT)

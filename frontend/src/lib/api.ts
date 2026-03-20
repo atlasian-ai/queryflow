@@ -60,8 +60,25 @@ export const listRuns = (pipelineId: string) =>
 export const getNodeData = (runId: string, nodeId: string, offset = 0, limit = 200) =>
   api.get(`/pipelines/runs/${runId}/nodes/${nodeId}/data`, { params: { offset, limit } }).then(r => r.data)
 
-export const getDownloadUrl = (runId: string, nodeId: string, format: 'csv' | 'xlsx') =>
-  `${BASE_URL}/pipelines/runs/${runId}/nodes/${nodeId}/download?format=${format}`
+export const downloadNodeResult = async (
+  runId: string,
+  nodeId: string,
+  format: 'csv' | 'xlsx',
+  filename = `result.${format}`,
+) => {
+  const response = await api.get(
+    `/pipelines/runs/${runId}/nodes/${nodeId}/download`,
+    { params: { format }, responseType: 'blob' },
+  )
+  const url = URL.createObjectURL(response.data)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 
 export const getSourcePreview = (sourceId: string, limit = 200) =>
   api.get(`/sources/${sourceId}/preview`, { params: { limit } }).then(r => r.data)
