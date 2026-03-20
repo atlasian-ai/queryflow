@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     # App
     frontend_url: str = "http://localhost:5173"
+    extra_origins: str = ""  # comma-separated extra allowed origins
 
     # Limits
     max_rows_free: int = 50_000
