@@ -28,7 +28,7 @@ function StatusBadge({ status }: { status: NodeData['runStatus'] }) {
   )
 }
 
-function TransformNode({ data, selected }: NodeProps<TransformNodeType>) {
+function TransformNode({ data, selected }: NodeProps<Node<NodeData>>) {
   const hasSql = Boolean(data.sql?.trim())
 
   return (

@@ -20,7 +20,7 @@ import TransformNode from './TransformNode'
 import type { Node } from '@xyflow/react'
 
 // Register custom node types
-const nodeTypes: NodeTypes = { transformNode: TransformNode }
+const nodeTypes = { transformNode: TransformNode } as unknown as NodeTypes
 
 function generateSlug(label: string): string {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'node'
