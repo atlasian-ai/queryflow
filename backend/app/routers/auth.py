@@ -1,5 +1,6 @@
 import uuid
-from fastapi import APIRouter, Depends
+import logging
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,11 +10,16 @@ from app.models.user import User
 from app.schemas.user import UserOut, UserSyncRequest
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/sync", response_model=UserOut)
 async def sync_user(payload: UserSyncRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.supabase_id == uuid.UUID(payload.supabase_id)))
+    try:
+        result = await db.execute(select(User).where(User.supabase_id == uuid.UUID(payload.supabase_id)))
+    except Exception as exc:
+        logger.error(f"DB error in sync_user: {exc}")
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
     user = result.scalar_one_or_none()
 
     if user:
