@@ -25,9 +25,18 @@ def _get_db_session():
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
-    # Convert asyncpg URL to psycopg2
+    # Convert asyncpg URL to psycopg2 and strip asyncpg-specific params
     sync_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
-    engine = create_engine(sync_url, pool_pre_ping=True)
+    if "?" in sync_url:
+        base, params = sync_url.split("?", 1)
+        # Remove params that are asyncpg-specific and unsupported by psycopg2
+        filtered = "&".join(
+            p for p in params.split("&")
+            if not p.startswith("statement_cache_size")
+        )
+        sync_url = f"{base}?{filtered}" if filtered else base
+
+    engine = create_engine(sync_url, pool_pre_ping=True, connect_args={"connect_timeout": 10})
     Session = sessionmaker(bind=engine)
     return Session()
 

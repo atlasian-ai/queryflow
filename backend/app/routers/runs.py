@@ -1,6 +1,7 @@
 """Pipeline run management — trigger, poll, fetch results, download."""
 import io
 import uuid
+from datetime import datetime, timezone
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -43,6 +44,21 @@ async def trigger_run(
     # Enqueue Celery task
     execute_pipeline.delay(str(run.id))
 
+    return run
+
+
+@router.post("/runs/{run_id}/cancel", response_model=RunOut)
+async def cancel_run(
+    run_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    run = await _get_owned_run(run_id, current_user, db)
+    if run.status in ("pending", "running"):
+        run.status = "cancelled"
+        run.completed_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(run)
     return run
 
 

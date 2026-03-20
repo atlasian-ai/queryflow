@@ -47,6 +47,9 @@ export const generateSQL = (pipelineId: string, payload: { prompt: string; node_
 export const triggerRun = (pipelineId: string) =>
   api.post(`/pipelines/${pipelineId}/run`).then(r => r.data)
 
+export const cancelRun = (runId: string) =>
+  api.post(`/pipelines/runs/${runId}/cancel`).then(r => r.data)
+
 export const getRun = (runId: string) =>
   api.get(`/pipelines/runs/${runId}`).then(r => r.data)
 

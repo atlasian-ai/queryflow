@@ -5,8 +5,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Save, Play, ArrowLeft, Database, Loader2 } from 'lucide-react'
-import { getPipeline, savePipeline, triggerRun, getRun } from '@/lib/api'
+import { Save, Play, Square, ArrowLeft, Database, Loader2 } from 'lucide-react'
+import { getPipeline, savePipeline, triggerRun, getRun, cancelRun } from '@/lib/api'
 import { usePipelineStore } from '@/store/usePipelineStore'
 import type { PipelineDetail, RunDetail } from '@/types'
 import PipelineCanvas from '@/components/canvas/PipelineCanvas'
@@ -103,6 +103,14 @@ export default function PipelinePage() {
     pollTimerRef.current = setTimeout(() => pollRun(runId), POLL_INTERVAL_MS)
   }, [applyRunResult])
 
+  const handleStop = useCallback(async () => {
+    if (!activeRunId) return
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+    try { await cancelRun(activeRunId) } catch { /* ignore */ }
+    setRunning(false)
+    setActiveRun(null)
+  }, [activeRunId, setActiveRun])
+
   const handleRun = useCallback(async () => {
     if (!pipelineId) return
     // Save first
@@ -165,16 +173,22 @@ export default function PipelinePage() {
           Save
         </button>
 
-        <button
-          onClick={handleRun}
-          disabled={running || nodes.length === 0}
-          className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 font-medium"
-        >
-          {running
-            ? <><Loader2 size={13} className="animate-spin" /> Running...</>
-            : <><Play size={13} /> Run</>
-          }
-        </button>
+        {running ? (
+          <button
+            onClick={handleStop}
+            className="flex items-center gap-1.5 text-xs bg-red-600 text-white px-4 py-1.5 rounded hover:bg-red-700 font-medium"
+          >
+            <Square size={13} /> Stop
+          </button>
+        ) : (
+          <button
+            onClick={handleRun}
+            disabled={nodes.length === 0}
+            className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 font-medium"
+          >
+            <Play size={13} /> Run
+          </button>
+        )}
       </header>
 
       {/* Main content */}
