@@ -129,7 +129,7 @@ export default function PipelineCanvas({ onNodeClick }: Props) {
     <div
       ref={reactFlowWrapper}
       className="w-full h-full"
-      style={{ background: '#111827' }}
+      style={{ background: '#111827', cursor: 'crosshair' }}
       onDoubleClickCapture={onPaneDoubleClick}
     >
       <ReactFlow

@@ -39,6 +39,7 @@ interface PipelineStore {
   onEdgesChange: (changes: EdgeChange[]) => void
   addNode: (node: Node<NodeData>) => void
   updateNodeData: (nodeId: string, data: Partial<NodeData>) => void
+  renameSlugInAllNodes: (exceptNodeId: string, oldSlug: string, newSlug: string) => void
   setSelectedNode: (nodeId: string | null) => void
   setDirty: (dirty: boolean) => void
   setActiveRun: (runId: string | null) => void
@@ -96,6 +97,21 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
       ),
       isDirty: true,
     })),
+
+  renameSlugInAllNodes: (exceptNodeId, oldSlug, newSlug) =>
+    set((state) => {
+      // Match old slug only when surrounded by non-identifier characters
+      const pattern = new RegExp(`(?<![a-z0-9_])${oldSlug}(?![a-z0-9_])`, 'g')
+      let changed = false
+      const nodes = state.nodes.map((n) => {
+        if (n.id === exceptNodeId || !n.data.sql) return n
+        const newSql = n.data.sql.replace(pattern, newSlug)
+        if (newSql === n.data.sql) return n
+        changed = true
+        return { ...n, data: { ...n.data, sql: newSql } }
+      })
+      return changed ? { nodes, isDirty: true } : {}
+    }),
 
   setSelectedNode: (nodeId) => set({ selectedNodeId: nodeId }),
   setDirty: (dirty) => set({ isDirty: dirty }),

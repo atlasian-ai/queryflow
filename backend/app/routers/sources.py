@@ -1,5 +1,6 @@
 """Data source management — upload CSV/XLSX files."""
 import io
+import re
 import uuid
 from typing import Optional
 
@@ -134,10 +135,20 @@ async def rename_source(
         raise HTTPException(status_code=404, detail="Data source not found")
 
     if "slug" in payload:
+        old_slug = ds.slug
         new_slug = slugify(payload["slug"], separator="_") or ds.slug
         existing = await db.execute(select(DataSource).where(DataSource.user_id == current_user.id, DataSource.id != source_id))
         existing_slugs = {s.slug for s in existing.scalars().all()}
         ds.slug = _unique_slug(new_slug, existing_slugs)
+
+        # Cascade rename into all pipeline nodes' SQL that reference the old slug
+        if old_slug != ds.slug:
+            from app.models.pipeline import PipelineNode
+            nodes_res = await db.execute(select(PipelineNode))
+            pattern = re.compile(r'(?<![a-z0-9_])' + re.escape(old_slug) + r'(?![a-z0-9_])')
+            for node in nodes_res.scalars().all():
+                if node.sql and old_slug in node.sql:
+                    node.sql = pattern.sub(ds.slug, node.sql)
 
     if "name" in payload:
         ds.name = payload["name"]

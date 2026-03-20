@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { sql } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
+import { EditorView } from '@codemirror/view'
 import { Wand2, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { generateSQL } from '@/lib/api'
 import { usePipelineStore } from '@/store/usePipelineStore'
@@ -20,7 +21,7 @@ interface Props {
 }
 
 export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
-  const { nodes, updateNodeData } = usePipelineStore()
+  const { nodes, updateNodeData, renameSlugInAllNodes } = usePipelineStore()
   const node = nodes.find((n) => n.id === nodeId)
 
   const [label, setLabel] = useState(node?.data.label ?? '')
@@ -44,18 +45,22 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
 
   const handleLabelBlur = () => {
     if (label.trim() && label !== node.data.label) {
+      const oldSlug = node.data.slug
       const newSlug = generateSlug(label.trim())
       setSlug(newSlug)
       updateNodeData(nodeId, { label: label.trim(), slug: newSlug })
+      if (newSlug !== oldSlug) renameSlugInAllNodes(nodeId, oldSlug, newSlug)
     }
   }
 
   const handleSlugBlur = () => {
     setSlugEditing(false)
+    const oldSlug = node.data.slug
     const cleanSlug = generateSlug(slug)
     setSlug(cleanSlug)
-    if (cleanSlug !== node.data.slug) {
+    if (cleanSlug !== oldSlug) {
       updateNodeData(nodeId, { slug: cleanSlug })
+      renameSlugInAllNodes(nodeId, oldSlug, cleanSlug)
     }
   }
 
@@ -165,7 +170,7 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
             <CodeMirror
               value={sqlValue}
               onChange={handleSqlChange}
-              extensions={[sql()]}
+              extensions={[sql(), EditorView.lineWrapping]}
               theme={oneDark}
               height="100%"
               basicSetup={{
