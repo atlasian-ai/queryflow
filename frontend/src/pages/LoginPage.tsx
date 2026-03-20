@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/useAuthStore'
-import { QueryFlowLogo } from '@/components/QueryFlowLogo'
+import QueryFlowLogo from '@/components/QueryFlowLogo'
 
 export default function LoginPage() {
   const navigate = useNavigate()
