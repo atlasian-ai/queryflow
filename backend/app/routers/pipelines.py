@@ -123,7 +123,7 @@ async def save_pipeline(
 
     nodes = (await db.execute(select(PipelineNode).where(PipelineNode.pipeline_id == pipeline_id))).scalars().all()
     edges_db = (await db.execute(select(PipelineEdge).where(PipelineEdge.pipeline_id == pipeline_id))).scalars().all()
-    return PipelineDetail.model_validate({"**": pipeline.__dict__, **pipeline.__dict__, "nodes": nodes, "edges": edges_db})
+    return PipelineDetail.model_validate({**pipeline.__dict__, "nodes": nodes, "edges": edges_db})
 
 
 @router.delete("/{pipeline_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -82,7 +82,7 @@ class PipelineOut(BaseModel):
     user_id: UUID
     name: str
     description: Optional[str]
-    canvas_state: dict
+    canvas_state: Optional[dict] = None
     created_at: datetime
     updated_at: datetime
 

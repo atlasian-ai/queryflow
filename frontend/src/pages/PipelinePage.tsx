@@ -113,8 +113,11 @@ export default function PipelinePage() {
         })),
       })
       setDirty(false)
-    } catch {
-      setSaveError('Save failed')
+    } catch (e: unknown) {
+      const detail =
+        (e as any)?.response?.data?.detail ||
+        (e instanceof Error ? e.message : null)
+      setSaveError(detail ? `Save failed: ${detail}` : 'Save failed')
     } finally {
       setSaving(false)
     }
