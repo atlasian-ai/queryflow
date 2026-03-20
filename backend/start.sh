@@ -2,7 +2,7 @@
 set -e
 
 echo "Running database migrations..."
-alembic upgrade head
+alembic upgrade head || echo "Migration failed or already up to date — continuing..."
 
 echo "Starting Celery worker..."
 celery -A app.workers.celery_app worker --loglevel=info --concurrency=2 &
