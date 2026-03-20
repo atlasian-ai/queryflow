@@ -1,6 +1,6 @@
 /**
  * Right panel — shown when a node is selected.
- * Contains: label editor, prompt textarea, Generate SQL button, CodeMirror SQL editor.
+ * Contains: label/slug editor, prompt textarea, Generate SQL button, CodeMirror SQL editor.
  */
 import { useState, useEffect } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
@@ -9,6 +9,10 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import { Wand2, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { generateSQL } from '@/lib/api'
 import { usePipelineStore } from '@/store/usePipelineStore'
+
+function generateSlug(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'node'
+}
 
 interface Props {
   nodeId: string
@@ -20,16 +24,18 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
   const node = nodes.find((n) => n.id === nodeId)
 
   const [label, setLabel] = useState(node?.data.label ?? '')
+  const [slug, setSlug] = useState(node?.data.slug ?? '')
+  const [slugEditing, setSlugEditing] = useState(false)
   const [prompt, setPrompt] = useState(node?.data.prompt ?? '')
   const [sqlValue, setSqlValue] = useState(node?.data.sql ?? '')
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState('')
   const [showPrompt, setShowPrompt] = useState(true)
 
-  // Sync from store when node changes
   useEffect(() => {
     if (!node) return
     setLabel(node.data.label)
+    setSlug(node.data.slug)
     setPrompt(node.data.prompt ?? '')
     setSqlValue(node.data.sql ?? '')
   }, [nodeId, node?.data.label, node?.data.prompt, node?.data.sql])
@@ -38,13 +44,22 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
 
   const handleLabelBlur = () => {
     if (label.trim() && label !== node.data.label) {
-      updateNodeData(nodeId, { label: label.trim() })
+      const newSlug = generateSlug(label.trim())
+      setSlug(newSlug)
+      updateNodeData(nodeId, { label: label.trim(), slug: newSlug })
     }
   }
 
-  const handlePromptBlur = () => {
-    updateNodeData(nodeId, { prompt })
+  const handleSlugBlur = () => {
+    setSlugEditing(false)
+    const cleanSlug = generateSlug(slug)
+    setSlug(cleanSlug)
+    if (cleanSlug !== node.data.slug) {
+      updateNodeData(nodeId, { slug: cleanSlug })
+    }
   }
+
+  const handlePromptBlur = () => updateNodeData(nodeId, { prompt })
 
   const handleSqlChange = (value: string) => {
     setSqlValue(value)
@@ -60,8 +75,7 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
       setSqlValue(result.sql)
       updateNodeData(nodeId, { sql: result.sql, prompt })
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to generate SQL'
-      setGenError(msg)
+      setGenError(e instanceof Error ? e.message : 'Failed to generate SQL')
     } finally {
       setGenerating(false)
     }
@@ -70,19 +84,39 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b bg-slate-50">
+      <div className="px-4 py-3 border-b bg-slate-50 flex-shrink-0">
         <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-1">Node Settings</p>
         <input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           onBlur={handleLabelBlur}
-          className="w-full text-sm font-semibold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none py-0.5"
+          className="w-full text-sm font-semibold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none py-0.5 mb-1"
           placeholder="Node label..."
         />
-        <code className="text-xs text-slate-400 font-mono">{node.data.slug}</code>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-slate-400">SQL name:</span>
+          {slugEditing ? (
+            <input
+              autoFocus
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+              onBlur={handleSlugBlur}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSlugBlur() }}
+              className="text-xs font-mono text-blue-600 bg-blue-50 border border-blue-300 rounded px-1 focus:outline-none flex-1"
+            />
+          ) : (
+            <button
+              onClick={() => setSlugEditing(true)}
+              className="text-xs font-mono text-slate-500 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 px-1.5 py-0.5 rounded transition-colors"
+              title="Click to rename SQL table name"
+            >
+              {slug}
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {/* Prompt section */}
         <div className="border-b">
           <button
@@ -99,13 +133,11 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onBlur={handlePromptBlur}
-                rows={3}
+                rows={4}
                 placeholder="e.g. filter rows where amount > 0, group by vendor and sum the amount, join with accounts on vendor_id..."
-                className="w-full text-sm border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-slate-700 placeholder:text-slate-400"
+                className="w-full text-sm border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[80px] text-slate-700 placeholder:text-slate-400"
               />
-
               {genError && <p className="text-xs text-red-600 mt-1">{genError}</p>}
-
               <button
                 onClick={handleGenerateSQL}
                 disabled={generating || !prompt.trim()}
@@ -122,31 +154,37 @@ export default function NodeConfigPanel({ nodeId, pipelineId }: Props) {
 
         {/* SQL editor */}
         <div className="flex flex-col">
-          <div className="px-4 py-2.5 flex items-center justify-between border-b bg-slate-50">
+          <div className="px-4 py-2.5 flex items-center justify-between border-b bg-slate-50 flex-shrink-0">
             <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">SQL (DuckDB)</span>
             <span className="text-xs text-slate-400">Edit directly or generate above</span>
           </div>
-          <CodeMirror
-            value={sqlValue}
-            onChange={handleSqlChange}
-            extensions={[sql()]}
-            theme={oneDark}
-            basicSetup={{
-              lineNumbers: true,
-              foldGutter: false,
-              dropCursor: false,
-              allowMultipleSelections: false,
-              indentOnInput: true,
-            }}
-            style={{ fontSize: '12px', minHeight: '200px' }}
-          />
+          <div
+            className="overflow-hidden resize-y"
+            style={{ minHeight: '180px', height: '300px' }}
+          >
+            <CodeMirror
+              value={sqlValue}
+              onChange={handleSqlChange}
+              extensions={[sql()]}
+              theme={oneDark}
+              height="100%"
+              basicSetup={{
+                lineNumbers: true,
+                foldGutter: false,
+                dropCursor: false,
+                allowMultipleSelections: false,
+                indentOnInput: true,
+              }}
+              style={{ fontSize: '12px', height: '100%' }}
+            />
+          </div>
         </div>
 
         {/* Available tables hint */}
         <div className="px-4 py-3 border-t bg-slate-50">
           <p className="text-xs text-slate-500 font-medium mb-1">Tip</p>
           <p className="text-xs text-slate-400">
-            Reference upstream nodes and uploaded files by their slug name in your SQL.
+            Reference upstream nodes by their <span className="font-mono bg-slate-200 px-1 rounded">SQL name</span> (shown above).
             Connect nodes on the canvas to make them available as input tables.
           </p>
         </div>

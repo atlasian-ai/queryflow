@@ -49,14 +49,16 @@ Your job is to write a single DuckDB SELECT statement based on the user's plain-
 Rules:
 - Return ONLY the SQL statement, no explanation, no markdown fences.
 - Always write a SELECT statement (never INSERT, UPDATE, DELETE, DROP, CREATE, or COPY).
-- Reference tables exactly by their names shown in the available tables list.
+- CRITICAL: Use table names EXACTLY as listed in "Available tables" — copy them character-for-character.
+- If the user mentions a previous step or node by name, find the matching slug in the available tables and use that exact slug name.
+- Upstream node outputs (labelled "output of node") take priority when the user refers to a previous step's result.
 - Use standard DuckDB SQL syntax. DuckDB supports CTEs, window functions, PIVOT, UNPIVOT, regex, and most Postgres syntax.
 - Column names with spaces or special characters must be quoted with double-quotes.
 - When joining, use meaningful aliases to avoid ambiguity.
 - If the request is ambiguous, make a reasonable assumption and write the SQL.
 """
 
-    user_msg = f"""Available tables:
+    user_msg = f"""Available tables (use these EXACT names in your FROM/JOIN clauses):
 {schema_ctx}
 
 User request: {prompt}

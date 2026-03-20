@@ -121,6 +121,32 @@ async def get_source(
     return ds
 
 
+@router.patch("/{source_id}", response_model=DataSourceOut)
+async def rename_source(
+    source_id: uuid.UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(DataSource).where(DataSource.id == source_id, DataSource.user_id == current_user.id))
+    ds = result.scalar_one_or_none()
+    if not ds:
+        raise HTTPException(status_code=404, detail="Data source not found")
+
+    if "slug" in payload:
+        new_slug = slugify(payload["slug"], separator="_") or ds.slug
+        existing = await db.execute(select(DataSource).where(DataSource.user_id == current_user.id, DataSource.id != source_id))
+        existing_slugs = {s.slug for s in existing.scalars().all()}
+        ds.slug = _unique_slug(new_slug, existing_slugs)
+
+    if "name" in payload:
+        ds.name = payload["name"]
+
+    await db.flush()
+    await db.refresh(ds)
+    return ds
+
+
 @router.delete("/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_source(
     source_id: uuid.UUID,

@@ -30,6 +30,7 @@ export const uploadSource = (file: File) => {
 
 export const listSources = () => api.get('/sources').then(r => r.data)
 export const deleteSource = (id: string) => api.delete(`/sources/${id}`)
+export const renameSource = (id: string, slug: string) => api.patch(`/sources/${id}`, { slug }).then(r => r.data)
 
 // ── Pipelines ─────────────────────────────────────────────────────────────────
 export const listPipelines = () => api.get('/pipelines').then(r => r.data)

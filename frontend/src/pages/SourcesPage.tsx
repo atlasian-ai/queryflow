@@ -1,8 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload, Trash2, FileSpreadsheet, ArrowLeft } from 'lucide-react'
-import { listSources, uploadSource, deleteSource } from '@/lib/api'
+import { Upload, Trash2, FileSpreadsheet, ArrowLeft, Pencil, Check, X } from 'lucide-react'
+import { listSources, uploadSource, deleteSource, renameSource } from '@/lib/api'
 import type { DataSource } from '@/types'
 
 function formatBytes(bytes: number | null) {
@@ -10,6 +10,45 @@ function formatBytes(bytes: number | null) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function SlugEditor({ source, onSave }: { source: DataSource; onSave: (id: string, slug: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(source.slug)
+
+  const commit = () => {
+    setEditing(false)
+    const clean = value.toLowerCase().replace(/[^a-z0-9_]/g, '') || source.slug
+    setValue(clean)
+    if (clean !== source.slug) onSave(source.id, clean)
+  }
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+          onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); setValue(source.slug) } }}
+          className="font-mono text-xs border border-blue-400 rounded px-1 focus:outline-none w-36"
+        />
+        <button onClick={commit} className="text-green-600 hover:text-green-700"><Check size={12} /></button>
+        <button onClick={() => { setEditing(false); setValue(source.slug) }} className="text-slate-400 hover:text-slate-600"><X size={12} /></button>
+      </span>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="inline-flex items-center gap-1 group"
+      title="Click to rename SQL table name"
+    >
+      <code className="bg-slate-100 group-hover:bg-blue-50 group-hover:text-blue-600 px-1 rounded font-mono text-xs transition-colors">{source.slug}</code>
+      <Pencil size={10} className="text-slate-300 group-hover:text-blue-400" />
+    </button>
+  )
 }
 
 export default function SourcesPage() {
@@ -28,6 +67,11 @@ export default function SourcesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteSource,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sources'] }),
+  })
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, slug }: { id: string; slug: string }) => renameSource(id, slug),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sources'] }),
   })
 
@@ -80,24 +124,27 @@ export default function SourcesPage() {
             {sources.map((s) => (
               <div key={s.id} className="px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <FileSpreadsheet size={18} className="text-green-600" />
+                  <FileSpreadsheet size={18} className="text-green-600 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-slate-900">{s.name}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      SQL table name: <code className="bg-slate-100 px-1 rounded font-mono">{s.slug}</code>
-                      {' · '}{s.row_count?.toLocaleString()} rows
-                      {' · '}{formatBytes(s.size_bytes)}
-                    </p>
+                    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                      <span className="text-xs text-slate-500">SQL name:</span>
+                      <SlugEditor
+                        source={s}
+                        onSave={(id, slug) => renameMutation.mutate({ id, slug })}
+                      />
+                      <span className="text-xs text-slate-400">· {s.row_count?.toLocaleString()} rows · {formatBytes(s.size_bytes)}</span>
+                    </div>
                     {s.column_schema && (
                       <p className="text-xs text-slate-400 mt-0.5">
-                        Columns: {s.column_schema.map(c => c.name).join(', ')}
+                        Columns: {s.column_schema.map((c: { name: string }) => c.name).join(', ')}
                       </p>
                     )}
                   </div>
                 </div>
                 <button
                   onClick={() => { if (confirm('Delete this file?')) deleteMutation.mutate(s.id) }}
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded flex-shrink-0"
                 >
                   <Trash2 size={14} />
                 </button>

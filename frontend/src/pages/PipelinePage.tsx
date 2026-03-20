@@ -22,7 +22,11 @@ export default function PipelinePage() {
   const [saving, setSaving] = useState(false)
   const [running, setRunning] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState('')
+  const [rightPanelWidth, setRightPanelWidth] = useState(320)
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isDraggingPanel = useRef(false)
 
   const {
     nodes, edges,
@@ -42,8 +46,37 @@ export default function PipelinePage() {
   useEffect(() => {
     if (!pipeline) return
     setPipeline(pipeline.id, pipeline.name)
+    setNameValue(pipeline.name)
     loadFromDB(pipeline.nodes, pipeline.edges)
   }, [pipeline?.id])
+
+  const handleNameBlur = useCallback(async () => {
+    setEditingName(false)
+    if (!pipelineId || !nameValue.trim() || nameValue === pipeline?.name) return
+    setPipeline(pipelineId, nameValue.trim())
+    try {
+      await savePipeline(pipelineId, { name: nameValue.trim() })
+    } catch { /* silent */ }
+  }, [pipelineId, nameValue, pipeline?.name, setPipeline])
+
+  const onPanelResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDraggingPanel.current = true
+    const startX = e.clientX
+    const startWidth = rightPanelWidth
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDraggingPanel.current) return
+      const delta = startX - e.clientX
+      setRightPanelWidth(Math.max(240, Math.min(600, startWidth + delta)))
+    }
+    const onMouseUp = () => {
+      isDraggingPanel.current = false
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [rightPanelWidth])
 
   // ── Save ────────────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -150,7 +183,24 @@ export default function PipelinePage() {
       {/* Header */}
       <header className="bg-white border-b px-4 py-2 flex items-center gap-3 flex-shrink-0">
         <Link to="/" className="text-slate-400 hover:text-slate-600"><ArrowLeft size={18} /></Link>
-        <span className="font-semibold text-slate-900 text-sm">{pipeline?.name}</span>
+        {editingName ? (
+          <input
+            autoFocus
+            value={nameValue}
+            onChange={(e) => setNameValue(e.target.value)}
+            onBlur={handleNameBlur}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleNameBlur(); if (e.key === 'Escape') setEditingName(false) }}
+            className="font-semibold text-slate-900 text-sm border-b border-blue-500 focus:outline-none bg-transparent"
+          />
+        ) : (
+          <button
+            onClick={() => { setEditingName(true); setNameValue(pipeline?.name ?? '') }}
+            className="font-semibold text-slate-900 text-sm hover:text-blue-600 transition-colors"
+            title="Click to rename"
+          >
+            {pipeline?.name}
+          </button>
+        )}
         {isDirty && <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">Unsaved</span>}
 
         <div className="flex-1" />
@@ -233,9 +283,20 @@ export default function PipelinePage() {
 
         {/* Right panel — node config */}
         {selectedNodeId && (
-          <div className="w-80 border-l bg-white flex flex-col flex-shrink-0 overflow-hidden">
-            <NodeConfigPanel nodeId={selectedNodeId} pipelineId={pipelineId!} />
-          </div>
+          <>
+            {/* Drag handle */}
+            <div
+              onMouseDown={onPanelResizeStart}
+              className="w-1 cursor-col-resize bg-slate-200 hover:bg-blue-400 transition-colors flex-shrink-0"
+              title="Drag to resize panel"
+            />
+            <div
+              style={{ width: rightPanelWidth }}
+              className="border-l bg-white flex flex-col flex-shrink-0 overflow-hidden"
+            >
+              <NodeConfigPanel nodeId={selectedNodeId} pipelineId={pipelineId!} />
+            </div>
+          </>
         )}
       </div>
     </div>
