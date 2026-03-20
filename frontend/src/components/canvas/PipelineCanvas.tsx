@@ -8,9 +8,9 @@ import {
   Background,
   Controls,
   MiniMap,
-  addEdge,
   type Connection,
   type Edge,
+  type NodeTypes,
   BackgroundVariant,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -20,7 +20,7 @@ import TransformNode from './TransformNode'
 import type { Node } from '@xyflow/react'
 
 // Register custom node types
-const nodeTypes = { transformNode: TransformNode }
+const nodeTypes: NodeTypes = { transformNode: TransformNode }
 
 function generateSlug(label: string): string {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'node'

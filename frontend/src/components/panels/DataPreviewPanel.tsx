@@ -3,15 +3,12 @@
  */
 import { useEffect, useMemo } from 'react'
 import { AgGridReact } from 'ag-grid-react'
-import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community'
 import 'ag-grid-community/styles/ag-grid.css'
 import 'ag-grid-community/styles/ag-theme-alpine.css'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
 import { getNodeData, getDownloadUrl } from '@/lib/api'
 import { usePipelineStore } from '@/store/usePipelineStore'
-
-ModuleRegistry.registerModules([AllCommunityModule])
 
 interface Props {
   pipelineId: string

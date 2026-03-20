@@ -3,9 +3,11 @@
  * Shows label, run status badge, row count, and a preview of the SQL.
  */
 import { memo } from 'react'
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { Handle, Position, type NodeProps, type Node } from '@xyflow/react'
 import { CheckCircle2, XCircle, Loader2, Clock, Database } from 'lucide-react'
 import type { NodeData } from '@/store/usePipelineStore'
+
+export type TransformNodeType = Node<NodeData, 'transformNode'>
 
 const STATUS_CONFIG = {
   success: { icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 border-green-200' },
@@ -26,7 +28,7 @@ function StatusBadge({ status }: { status: NodeData['runStatus'] }) {
   )
 }
 
-function TransformNode({ data, selected }: NodeProps<NodeData>) {
+function TransformNode({ data, selected }: NodeProps<TransformNodeType>) {
   const hasSql = Boolean(data.sql?.trim())
 
   return (
