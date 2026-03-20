@@ -110,10 +110,11 @@ async def save_pipeline(
         await db.flush()
 
     if payload.edges is not None:
-        # Edges were already cascade-deleted with nodes above; just insert the new ones
+        # Edges were already cascade-deleted with nodes above; just insert the new ones.
+        # Generate fresh UUIDs — client edge IDs are not valid UUIDs (e.g. "e-<uuid>-<uuid>").
         for e in payload.edges:
             db.add(PipelineEdge(
-                id=uuid.UUID(e.id),
+                id=uuid.uuid4(),
                 pipeline_id=pipeline_id,
                 source_node_id=uuid.UUID(e.source_node_id),
                 target_node_id=uuid.UUID(e.target_node_id),
