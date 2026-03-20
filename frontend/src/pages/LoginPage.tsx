@@ -16,16 +16,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const { error } = mode === 'login'
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password })
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
     } finally {
       setLoading(false)
@@ -39,7 +36,6 @@ export default function LoginPage() {
         className="hidden lg:flex flex-col justify-between w-[420px] flex-shrink-0 p-10"
         style={{ background: 'linear-gradient(145deg, #1e3a8a 0%, #1d1250 60%, #0f0a1e 100%)' }}
       >
-        {/* Logo */}
         <div className="flex items-center gap-3">
           <QueryFlowLogo size={40} idSuffix="login-panel" />
           <span className="text-white font-bold text-xl tracking-tight">
@@ -47,7 +43,6 @@ export default function LoginPage() {
           </span>
         </div>
 
-        {/* Tagline */}
         <div>
           <p className="text-3xl font-bold text-white leading-snug mb-4">
             Build SQL pipelines<br />
@@ -58,7 +53,6 @@ export default function LoginPage() {
             runs it step-by-step, and keeps your data flowing.
           </p>
 
-          {/* Feature bullets */}
           <ul className="mt-8 space-y-3">
             {[
               'Natural language → DuckDB SQL',
@@ -91,14 +85,8 @@ export default function LoginPage() {
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-slate-900">
-                {mode === 'login' ? 'Welcome back' : 'Create your account'}
-              </h2>
-              <p className="text-sm text-slate-500 mt-1">
-                {mode === 'login'
-                  ? 'Sign in to your QueryFlow workspace'
-                  : 'Start building data pipelines for free'}
-              </p>
+              <h2 className="text-xl font-semibold text-slate-900">Welcome back</h2>
+              <p className="text-sm text-slate-500 mt-1">Sign in to your QueryFlow workspace</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -137,19 +125,9 @@ export default function LoginPage() {
                 className="w-full text-white rounded-lg py-2.5 text-sm font-semibold hover:opacity-90 active:opacity-80 disabled:opacity-50 transition-opacity mt-2"
                 style={{ background: 'linear-gradient(135deg, #2563EB, #6D28D9)' }}
               >
-                {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
+                {loading ? 'Please wait…' : 'Sign in'}
               </button>
             </form>
-
-            <p className="text-sm text-center text-slate-500 mt-5">
-              {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-              <button
-                onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
-                className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
-              >
-                {mode === 'login' ? 'Sign up' : 'Sign in'}
-              </button>
-            </p>
           </div>
         </div>
       </div>
