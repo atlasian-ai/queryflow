@@ -92,7 +92,7 @@ export default function PipelineCanvas({ onNodeClick }: Props) {
   }, [pendingNode, newNodeLabel, addNode, setSelectedNode, onNodeClick])
 
   return (
-    <div ref={reactFlowWrapper} className="w-full h-full">
+    <div ref={reactFlowWrapper} className="w-full h-full" onDoubleClick={onPaneDoubleClick}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -102,7 +102,6 @@ export default function PipelineCanvas({ onNodeClick }: Props) {
         onConnect={onConnect}
         onNodeClick={onNodeClickHandler}
         onPaneClick={onPaneClick}
-        onPaneDoubleClick={onPaneDoubleClick}
         fitView
         deleteKeyCode="Delete"
         minZoom={0.3}
