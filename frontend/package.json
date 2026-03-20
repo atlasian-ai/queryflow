@@ -1,0 +1,44 @@
+{
+  "name": "queryflow-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@codemirror/lang-sql": "^6.8.0",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@supabase/supabase-js": "^2.45.0",
+    "@tanstack/react-query": "^5.59.0",
+    "@uiw/react-codemirror": "^4.23.0",
+    "@xyflow/react": "^12.3.0",
+    "ag-grid-community": "^32.3.0",
+    "ag-grid-react": "^32.3.0",
+    "axios": "^1.7.7",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.453.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.27.0",
+    "tailwind-merge": "^2.5.3",
+    "tailwindcss-animate": "^1.0.7",
+    "uuid": "^10.0.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.9"
+  }
+}
