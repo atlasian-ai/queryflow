@@ -96,7 +96,14 @@ export default function LinearPipelineCanvas({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ background: '#111827' }}>
+    <div
+      className="flex-1 overflow-y-auto overflow-x-hidden"
+      style={{
+        backgroundColor: '#111827',
+        backgroundImage: 'radial-gradient(circle, #374151 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
+      }}
+    >
       <div className="flex flex-col items-center py-8 px-6 min-h-full">
 
         {/* ── Data Sources ───────────────────────────────────────────── */}
