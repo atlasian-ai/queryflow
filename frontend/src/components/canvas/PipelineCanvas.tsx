@@ -65,6 +65,13 @@ export default function PipelineCanvas({ onNodeClick }: Props) {
   // Double-click on pane to add a new node
   const onPaneDoubleClick = useCallback(
     (event: React.MouseEvent) => {
+      // Only trigger on empty canvas space, not on nodes/edges/controls
+      const target = event.target as HTMLElement
+      const isPane = target.classList.contains('react-flow__pane') ||
+        target.classList.contains('react-flow__background') ||
+        target.closest('.react-flow__pane') !== null
+      if (!isPane) return
+
       const wrapper = reactFlowWrapper.current
       if (!wrapper) return
       const rect = wrapper.getBoundingClientRect()
@@ -92,7 +99,7 @@ export default function PipelineCanvas({ onNodeClick }: Props) {
   }, [pendingNode, newNodeLabel, addNode, setSelectedNode, onNodeClick])
 
   return (
-    <div ref={reactFlowWrapper} className="w-full h-full" onDoubleClick={onPaneDoubleClick}>
+    <div ref={reactFlowWrapper} className="w-full h-full" onDoubleClickCapture={onPaneDoubleClick}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
