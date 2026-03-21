@@ -1,6 +1,6 @@
 /**
  * Linear vertical pipeline canvas — Workato-style top-to-bottom flow.
- * Light theme with numbered step badges and clean connector lines.
+ * Light theme, centered layout, dotted grid background.
  */
 import React, { useState } from 'react'
 import {
@@ -27,29 +27,37 @@ function StatusIcon({ status }: { status?: string }) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1 select-none">
+    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2 select-none text-center">
       {children}
     </p>
   )
 }
 
-/** Vertical connector segment */
-function Line({ height = 'h-5' }: { height?: string }) {
-  return <div className={`w-px ${height} bg-slate-200 flex-shrink-0`} />
+/** Centered vertical connector line segment */
+function Connector({ height = 'h-5' }: { height?: string }) {
+  return (
+    <div className="flex justify-center">
+      <div className={`w-px ${height} bg-slate-300`} />
+    </div>
+  )
 }
 
-/** Small add-step button shown between steps */
-function AddButton({ onClick }: { onClick: () => void }) {
+/** Centered add-step button with connector lines above and below */
+function AddButtonRow({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      title="Add step here"
-      className="w-6 h-6 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center
-                 text-slate-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50
-                 transition-all flex-shrink-0 bg-white"
-    >
-      <Plus size={11} />
-    </button>
+    <div className="flex flex-col items-center">
+      <div className="w-px h-3 bg-slate-300" />
+      <button
+        onClick={onClick}
+        title="Add step here"
+        className="w-7 h-7 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center
+                   text-slate-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50
+                   transition-all bg-white shadow-sm"
+      >
+        <Plus size={13} />
+      </button>
+      <div className="w-px h-3 bg-slate-300" />
+    </div>
   )
 }
 
@@ -126,13 +134,21 @@ export default function LinearPipelineCanvas({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden relative bg-slate-50">
+    <div
+      className="flex-1 overflow-y-auto overflow-x-hidden relative"
+      style={{
+        backgroundColor: '#f1f5f9',
+        backgroundImage: 'radial-gradient(circle, #94a3b8 1px, transparent 1px)',
+        backgroundSize: '22px 22px',
+      }}
+    >
       {/* Zoomed content */}
       <div style={{ zoom, transformOrigin: 'top center' }}>
         <div className="flex flex-col items-center py-10 px-4 sm:px-8 min-h-full">
-          <div className="w-full max-w-xl">
+          {/* Fixed-width center column — all nodes same width */}
+          <div className="w-full max-w-lg">
 
-            {/* ── DATA SOURCES section ─────────────────────────────── */}
+            {/* ── DATA SOURCES ─────────────────────────────────────── */}
             {dataSources.length > 0 && (
               <>
                 <SectionLabel>Data Sources</SectionLabel>
@@ -140,185 +156,151 @@ export default function LinearPipelineCanvas({
                   const active = selectedSourceId === ds.id
                   return (
                     <React.Fragment key={ds.id}>
-                      {/* Connector row */}
-                      <div className="flex items-stretch gap-3">
-                        {/* Left gutter */}
-                        <div className="w-8 flex-shrink-0 flex flex-col items-center">
-                          {i === 0 && <Line height="h-2" />}
-                          {i > 0 && <Line height="h-3" />}
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-                            active ? 'bg-emerald-500' : 'bg-emerald-700'
+                      {i > 0 && <Connector height="h-2" />}
+                      <button
+                        onClick={() => onSourceClick(ds.id)}
+                        className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all shadow-sm ${
+                          active
+                            ? 'bg-emerald-50 border-emerald-400'
+                            : 'bg-white border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            active ? 'bg-emerald-500' : 'bg-emerald-600'
                           }`}>
-                            <Database size={13} className="text-white" />
+                            <Database size={14} className="text-white" />
                           </div>
-                          <Line height="h-3" />
-                        </div>
-                        {/* Source chip */}
-                        <div className="flex-1 py-1">
-                          <button
-                            onClick={() => onSourceClick(ds.id)}
-                            className={`w-full text-left px-4 py-2.5 rounded-lg border text-sm transition-all ${
-                              active
-                                ? 'bg-emerald-50 border-emerald-300 shadow-sm'
-                                : 'bg-white border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/40'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-medium font-mono text-slate-800">{ds.slug}</span>
-                              {ds.row_count != null && (
-                                <span className="text-xs text-slate-400 tabular-nums">{ds.row_count.toLocaleString()} rows</span>
-                              )}
-                            </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-slate-800 font-mono truncate">{ds.slug}</p>
                             {ds.name !== ds.slug && (
-                              <p className="text-xs text-slate-500 mt-0.5">{ds.name}</p>
+                              <p className="text-xs text-slate-500 truncate">{ds.name}</p>
                             )}
-                          </button>
+                          </div>
+                          {ds.row_count != null && (
+                            <span className="text-xs text-slate-400 tabular-nums flex-shrink-0">
+                              {ds.row_count.toLocaleString()} rows
+                            </span>
+                          )}
                         </div>
-                      </div>
+                      </button>
                     </React.Fragment>
                   )
                 })}
 
-                {/* Connector from sources to steps */}
-                {nodes.length > 0 && (
-                  <div className="flex gap-3">
-                    <div className="w-8 flex-shrink-0 flex justify-center">
-                      <div className="w-px h-5 bg-slate-200" />
-                    </div>
-                    <div className="flex-1" />
-                  </div>
-                )}
+                {/* Connector to steps section */}
+                {nodes.length > 0 && <Connector height="h-6" />}
               </>
             )}
 
-            {/* ── STEPS section ────────────────────────────────────── */}
+            {/* ── STEPS ─────────────────────────────────────────────── */}
             {nodes.length > 0 && <SectionLabel>Steps</SectionLabel>}
 
-            {/* ── Empty state ──────────────────────────────────────── */}
+            {/* ── Empty state ───────────────────────────────────────── */}
             {nodes.length === 0 && (
-              <div className="flex flex-col items-center gap-3 mt-4">
-                <div className="flex gap-3 items-center">
-                  <div className="w-8 flex-shrink-0 flex justify-center">
-                    <AddButton onClick={() => openAddDialog(-1)} />
-                  </div>
-                  <p className="text-sm text-slate-400">Add your first step</p>
-                </div>
+              <div className="flex flex-col items-center gap-2 mt-6">
+                <AddButtonRow onClick={() => openAddDialog(-1)} />
+                <p className="text-xs text-slate-400">Add your first step</p>
               </div>
             )}
 
-            {/* ── Nodes ────────────────────────────────────────────── */}
+            {/* ── Nodes ─────────────────────────────────────────────── */}
             {nodes.map((node, index) => {
               const isSelected = selectedNodeId === node.id
               const status = node.data.runStatus as string | undefined
 
+              const badgeCls =
+                status === 'success' ? 'bg-emerald-500'
+                : status === 'failed'  ? 'bg-red-500'
+                : status === 'running' ? 'bg-blue-500'
+                : isSelected           ? 'bg-blue-600'
+                : 'bg-slate-400'
+
+              const cardCls = isSelected
+                ? 'border-blue-400 shadow-md shadow-blue-100 ring-1 ring-blue-300'
+                : status === 'success'
+                ? 'border-emerald-300'
+                : status === 'failed'
+                ? 'border-red-300'
+                : 'border-slate-200 hover:border-blue-200 hover:shadow-sm'
+
               return (
                 <React.Fragment key={node.id}>
-                  {/* Step row */}
-                  <div className="flex items-stretch gap-3">
-                    {/* Left gutter: line + number badge + line */}
-                    <div className="w-8 flex-shrink-0 flex flex-col items-center">
-                      <Line height="h-2" />
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 transition-colors ${
-                        status === 'success' ? 'bg-emerald-500'
-                        : status === 'failed'  ? 'bg-red-500'
-                        : status === 'running' ? 'bg-blue-500'
-                        : isSelected           ? 'bg-blue-600'
-                        : 'bg-slate-400'
-                      }`}>
+                  {/* ── Node card — full container width ──────────── */}
+                  <div
+                    onClick={() => handleNodeClick(node.id)}
+                    className={`w-full bg-white rounded-xl border-2 cursor-pointer transition-all group ${cardCls}`}
+                  >
+                    {/* Card header */}
+                    <div className="px-4 py-3 flex items-center gap-3">
+                      {/* Step number badge */}
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${badgeCls}`}>
                         {status === 'success' ? <CheckCircle2 size={14} />
                          : status === 'failed'  ? <XCircle size={14} />
                          : status === 'running' ? <Loader2 size={12} className="animate-spin" />
                          : index + 1}
                       </div>
-                      <Line height="h-2" />
-                    </div>
 
-                    {/* Card */}
-                    <div className="flex-1 py-1.5">
-                      <div
-                        onClick={() => handleNodeClick(node.id)}
-                        className={`bg-white rounded-lg border cursor-pointer transition-all group ${
-                          isSelected
-                            ? 'border-blue-400 shadow-md shadow-blue-100 ring-1 ring-blue-300'
-                            : status === 'success'
-                            ? 'border-emerald-300'
-                            : status === 'failed'
-                            ? 'border-red-300'
-                            : 'border-slate-200 hover:border-blue-200 hover:shadow-sm'
-                        }`}
-                      >
-                        {/* Card header */}
-                        <div className="px-4 py-3 flex items-center gap-3">
-                          {/* Step type badge */}
-                          <div className={`w-7 h-7 rounded flex items-center justify-center flex-shrink-0 ${
-                            node.data.node_type === 'source' ? 'bg-emerald-100' : 'bg-blue-100'
-                          }`}>
-                            <span className={`text-xs font-bold ${
-                              node.data.node_type === 'source' ? 'text-emerald-700' : 'text-blue-700'
-                            }`}>
-                              {node.data.node_type === 'source' ? 'S' : 'T'}
-                            </span>
-                          </div>
+                      {/* Step type icon */}
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        node.data.node_type === 'source' ? 'bg-emerald-100' : 'bg-blue-100'
+                      }`}>
+                        <span className={`text-xs font-bold ${
+                          node.data.node_type === 'source' ? 'text-emerald-700' : 'text-blue-700'
+                        }`}>
+                          {node.data.node_type === 'source' ? 'S' : 'T'}
+                        </span>
+                      </div>
 
-                          {/* Label */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-800 truncate leading-tight">
-                              {node.data.label}
-                            </p>
-                            <p className="text-xs font-mono text-slate-400 mt-0.5">{node.data.slug}</p>
-                          </div>
+                      {/* Labels */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate leading-tight">
+                          {node.data.label}
+                        </p>
+                        <p className="text-xs font-mono text-slate-400 mt-0.5">{node.data.slug}</p>
+                      </div>
 
-                          {/* Status icon + row count */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <StatusIcon status={status} />
-                            {node.data.rowCount != null && (
-                              <span className="text-xs tabular-nums px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                {(node.data.rowCount as number).toLocaleString()} rows
-                              </span>
-                            )}
-                            {node.data.errorMessage && (
-                              <span className="text-xs text-red-500 truncate max-w-[100px]"
-                                    title={node.data.errorMessage as string}>
-                                {node.data.errorMessage}
-                              </span>
-                            )}
-                            {/* Delete — on hover */}
-                            <button
-                              onClick={e => { e.stopPropagation(); setConfirmDeleteId(node.id) }}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                              title="Delete step"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* SQL preview */}
-                        <div className="px-4 pb-3 pl-14">
-                          {node.data.sql ? (
-                            <p className="text-xs font-mono text-slate-400 truncate">
-                              {(node.data.sql as string).replace(/\s+/g, ' ').slice(0, 100)}
-                              {(node.data.sql as string).length > 100 ? '…' : ''}
-                            </p>
-                          ) : (
-                            <p className="text-xs italic text-slate-300">
-                              No SQL yet — click to configure
-                            </p>
-                          )}
-                        </div>
+                      {/* Status + row count + delete */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <StatusIcon status={status} />
+                        {node.data.rowCount != null && (
+                          <span className="text-xs tabular-nums px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {(node.data.rowCount as number).toLocaleString()} rows
+                          </span>
+                        )}
+                        {node.data.errorMessage && (
+                          <span className="text-xs text-red-500 truncate max-w-[90px]"
+                                title={node.data.errorMessage as string}>
+                            {node.data.errorMessage}
+                          </span>
+                        )}
+                        <button
+                          onClick={e => { e.stopPropagation(); setConfirmDeleteId(node.id) }}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                          title="Delete step"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </div>
+
+                    {/* SQL preview */}
+                    <div className="px-4 pb-3 pl-[4.5rem]">
+                      {node.data.sql ? (
+                        <p className="text-xs font-mono text-slate-400 truncate">
+                          {(node.data.sql as string).replace(/\s+/g, ' ').slice(0, 100)}
+                          {(node.data.sql as string).length > 100 ? '…' : ''}
+                        </p>
+                      ) : (
+                        <p className="text-xs italic text-slate-300">
+                          No SQL yet — click to configure
+                        </p>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Add button row between steps */}
-                  <div className="flex items-center gap-3 h-9">
-                    <div className="w-8 flex-shrink-0 flex flex-col items-center h-full">
-                      <Line height="h-full" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <AddButton onClick={() => openAddDialog(index)} />
-                    </div>
-                  </div>
+                  {/* ── Centered add button below each node ─────────── */}
+                  <AddButtonRow onClick={() => openAddDialog(index)} />
                 </React.Fragment>
               )
             })}
