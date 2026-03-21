@@ -2,10 +2,10 @@
  * Linear vertical pipeline canvas — Workato-style top-to-bottom flow.
  * Light theme, centered layout, dotted grid background.
  */
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   Plus, CheckCircle2, XCircle, Loader2, Clock,
-  Database, Trash2, ZoomIn, ZoomOut, RotateCcw,
+  Database, Trash2, ZoomIn, ZoomOut, RotateCcw, GripVertical,
 } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid'
 import { usePipelineStore } from '@/store/usePipelineStore'
@@ -103,11 +103,15 @@ interface Props {
 export default function LinearPipelineCanvas({
   onNodeClick, onSourceClick, dataSources, selectedSourceId,
 }: Props) {
-  const { nodes, selectedNodeId, setSelectedNode, insertNodeAfterIndex, removeNode } = usePipelineStore()
+  const { nodes, selectedNodeId, setSelectedNode, insertNodeAfterIndex, removeNode, reorderNodes } = usePipelineStore()
   const [pendingInsertAfter, setPendingInsertAfter] = useState<number | null>(null)
   const [newNodeLabel, setNewNodeLabel] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
+
+  // ── Drag-to-reorder state ──────────────────────────────────────
+  const dragIndexRef = useRef<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   const handleNodeClick = (nodeId: string) => { setSelectedNode(nodeId); onNodeClick(nodeId) }
   const openAddDialog = (afterIndex: number) => { setPendingInsertAfter(afterIndex); setNewNodeLabel('') }
@@ -208,6 +212,7 @@ export default function LinearPipelineCanvas({
             {nodes.map((node, index) => {
               const isSelected = selectedNodeId === node.id
               const status = node.data.runStatus as string | undefined
+              const isDraggingOver = dragOverIndex === index
 
               const badgeCls =
                 status === 'success' ? 'bg-emerald-500'
@@ -226,13 +231,47 @@ export default function LinearPipelineCanvas({
 
               return (
                 <React.Fragment key={node.id}>
+                  {/* Drop indicator above this node */}
+                  {isDraggingOver && dragIndexRef.current !== index && dragIndexRef.current !== index - 1 && (
+                    <div className="w-full h-0.5 bg-blue-400 rounded-full my-0.5 shadow-sm" />
+                  )}
+
                   {/* ── Node card — full container width ──────────── */}
                   <div
+                    draggable
+                    onDragStart={e => {
+                      dragIndexRef.current = index
+                      e.dataTransfer.effectAllowed = 'move'
+                      // Use a ghost that shows the card
+                      e.dataTransfer.setDragImage(e.currentTarget, 20, 20)
+                    }}
+                    onDragEnd={() => { dragIndexRef.current = null; setDragOverIndex(null) }}
+                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIndex(index) }}
+                    onDragLeave={() => setDragOverIndex(null)}
+                    onDrop={e => {
+                      e.preventDefault()
+                      if (dragIndexRef.current !== null && dragIndexRef.current !== index) {
+                        reorderNodes(dragIndexRef.current, index)
+                      }
+                      dragIndexRef.current = null
+                      setDragOverIndex(null)
+                    }}
                     onClick={() => handleNodeClick(node.id)}
-                    className={`w-full bg-white rounded-xl border-2 cursor-pointer transition-all group ${cardCls}`}
+                    className={`w-full bg-white rounded-xl border-2 cursor-pointer transition-all group select-none ${cardCls} ${
+                      dragIndexRef.current === index ? 'opacity-40' : ''
+                    }`}
                   >
                     {/* Card header */}
                     <div className="px-4 py-3 flex items-center gap-3">
+                      {/* Drag handle */}
+                      <div
+                        className="opacity-0 group-hover:opacity-100 flex-shrink-0 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-400 transition-opacity -ml-1"
+                        title="Drag to reorder"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <GripVertical size={15} />
+                      </div>
+
                       {/* Step number badge */}
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${badgeCls}`}>
                         {status === 'success' ? <CheckCircle2 size={14} />
@@ -285,7 +324,7 @@ export default function LinearPipelineCanvas({
                     </div>
 
                     {/* SQL preview */}
-                    <div className="px-4 pb-3 pl-[4.5rem]">
+                    <div className="px-4 pb-3 pl-[5.5rem]">
                       {node.data.sql ? (
                         <p className="text-xs font-mono text-slate-400 truncate">
                           {(node.data.sql as string).replace(/\s+/g, ' ').slice(0, 100)}

@@ -19,11 +19,33 @@ class DataSourceOut(BaseModel):
     created_at: datetime
 
 
+# ── Folders ───────────────────────────────────────────────────────────────────
+
+class FolderCreate(BaseModel):
+    name: str
+    emoji: str = "📁"
+
+class FolderUpdate(BaseModel):
+    name: Optional[str] = None
+    emoji: Optional[str] = None
+
+class FolderOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: UUID
+    user_id: UUID
+    name: str
+    emoji: str
+    created_at: datetime
+    updated_at: datetime
+
+
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
 class PipelineCreate(BaseModel):
     name: str
     description: Optional[str] = None
+    emoji: Optional[str] = None
+    folder_id: Optional[str] = None
 
 
 class PipelineNodeIn(BaseModel):
@@ -47,6 +69,8 @@ class PipelineEdgeIn(BaseModel):
 class PipelineSave(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    emoji: Optional[str] = None
+    folder_id: Optional[str] = None  # empty string means remove from folder
     canvas_state: Optional[dict] = None
     nodes: Optional[list[PipelineNodeIn]] = None
     edges: Optional[list[PipelineEdgeIn]] = None
@@ -82,6 +106,8 @@ class PipelineOut(BaseModel):
     user_id: UUID
     name: str
     description: Optional[str]
+    emoji: Optional[str] = None
+    folder_id: Optional[UUID] = None
     canvas_state: Optional[dict] = None
     created_at: datetime
     updated_at: datetime

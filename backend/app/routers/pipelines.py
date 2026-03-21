@@ -43,6 +43,8 @@ async def create_pipeline(
         user_id=current_user.id,
         name=payload.name,
         description=payload.description,
+        emoji=payload.emoji,
+        folder_id=uuid.UUID(payload.folder_id) if payload.folder_id else None,
         canvas_state={},
     )
     db.add(pipeline)
@@ -82,6 +84,10 @@ async def save_pipeline(
         pipeline.description = payload.description
     if payload.canvas_state is not None:
         pipeline.canvas_state = payload.canvas_state
+    if payload.emoji is not None:
+        pipeline.emoji = payload.emoji
+    if payload.folder_id is not None:
+        pipeline.folder_id = uuid.UUID(payload.folder_id) if payload.folder_id else None
 
     if payload.nodes is not None:
         # Delete all existing nodes — CASCADE removes their edges too

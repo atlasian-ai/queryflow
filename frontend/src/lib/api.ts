@@ -32,9 +32,17 @@ export const listSources = () => api.get('/sources').then(r => r.data)
 export const deleteSource = (id: string) => api.delete(`/sources/${id}`)
 export const renameSource = (id: string, slug: string) => api.patch(`/sources/${id}`, { slug }).then(r => r.data)
 
+// ── Folders ───────────────────────────────────────────────────────────────────
+export const listFolders = () => api.get('/folders').then(r => r.data)
+export const createFolder = (payload: { name: string; emoji?: string }) =>
+  api.post('/folders', payload).then(r => r.data)
+export const updateFolder = (id: string, payload: { name?: string; emoji?: string }) =>
+  api.put(`/folders/${id}`, payload).then(r => r.data)
+export const deleteFolder = (id: string) => api.delete(`/folders/${id}`)
+
 // ── Pipelines ─────────────────────────────────────────────────────────────────
 export const listPipelines = () => api.get('/pipelines').then(r => r.data)
-export const createPipeline = (payload: { name: string; description?: string }) =>
+export const createPipeline = (payload: { name: string; description?: string; emoji?: string; folder_id?: string }) =>
   api.post('/pipelines', payload).then(r => r.data)
 export const getPipeline = (id: string) => api.get(`/pipelines/${id}`).then(r => r.data)
 export const savePipeline = (id: string, payload: object) =>

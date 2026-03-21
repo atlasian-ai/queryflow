@@ -25,11 +25,22 @@ export interface ColumnDef {
   dtype: string
 }
 
+export interface PipelineFolder {
+  id: string
+  user_id: string
+  name: string
+  emoji: string
+  created_at: string
+  updated_at: string
+}
+
 export interface Pipeline {
   id: string
   user_id: string
   name: string
   description: string | null
+  emoji: string | null
+  folder_id: string | null
   canvas_state: object
   created_at: string
   updated_at: string

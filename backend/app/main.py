@@ -11,6 +11,7 @@ from app.routers import auth as auth_router
 from app.routers import sources as sources_router
 from app.routers import pipelines as pipelines_router
 from app.routers import runs as runs_router
+from app.routers import folders as folders_router
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
 app.include_router(sources_router.router, prefix="/sources", tags=["sources"])
 app.include_router(pipelines_router.router, prefix="/pipelines", tags=["pipelines"])
 app.include_router(runs_router.router, prefix="/pipelines", tags=["runs"])
+app.include_router(folders_router.router, prefix="/folders", tags=["folders"])
 
 
 @app.get("/health")

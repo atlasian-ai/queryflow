@@ -40,6 +40,7 @@ interface PipelineStore {
   addNode: (node: Node<NodeData>) => void
   insertNodeAfterIndex: (node: Node<NodeData>, afterIndex: number) => void
   removeNode: (nodeId: string) => void
+  reorderNodes: (fromIndex: number, toIndex: number) => void
   updateNodeData: (nodeId: string, data: Partial<NodeData>) => void
   renameSlugInAllNodes: (exceptNodeId: string, oldSlug: string, newSlug: string) => void
   setSelectedNode: (nodeId: string | null) => void
@@ -106,6 +107,19 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
   insertNodeAfterIndex: (node, afterIndex) => set((state) => {
     const nodes = [...state.nodes]
     nodes.splice(afterIndex + 1, 0, node)
+    const edges: Edge[] = nodes.slice(0, -1).map((n, i) => ({
+      id: `e-${n.id}-${nodes[i + 1].id}`,
+      source: n.id,
+      target: nodes[i + 1].id,
+    }))
+    return { nodes, edges, isDirty: true }
+  }),
+
+  reorderNodes: (fromIndex, toIndex) => set((state) => {
+    if (fromIndex === toIndex) return {}
+    const nodes = [...state.nodes]
+    const [moved] = nodes.splice(fromIndex, 1)
+    nodes.splice(toIndex, 0, moved)
     const edges: Edge[] = nodes.slice(0, -1).map((n, i) => ({
       id: `e-${n.id}-${nodes[i + 1].id}`,
       source: n.id,
