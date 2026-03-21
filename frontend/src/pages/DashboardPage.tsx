@@ -422,7 +422,7 @@ export default function DashboardPage() {
         <div className="px-4 py-3.5 border-b flex items-center gap-2.5">
           <QueryFlowLogo size={26} idSuffix="dash-sidebar" />
           <span className="font-bold text-slate-800 text-sm tracking-tight">
-            Query<span className="text-blue-600">Flow</span>
+            Dato<span className="text-blue-600">pia</span>
           </span>
         </div>
 

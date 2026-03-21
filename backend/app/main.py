@@ -33,8 +33,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="QueryFlow API",
-    description="Visual SQL pipeline builder with AI-powered SQL generation",
+    title="Datopia API",
+    description="Imagine and build data pipelines effortlessly — AI-powered SQL generation for everyone.",
     version="0.1.0",
     lifespan=lifespan,
 )

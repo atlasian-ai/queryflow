@@ -1,5 +1,5 @@
 /**
- * QueryFlow brand logo mark — scales via the `size` prop.
+ * Datopia brand logo mark — scales via the `size` prop.
  * Renders as an SVG badge (no external assets needed).
  */
 interface Props {
@@ -9,8 +9,8 @@ interface Props {
 }
 
 export default function QueryFlowLogo({ size = 36, idSuffix = '0' }: Props) {
-  const gradId = `qf-grad-${idSuffix}`
-  const glowId = `qf-glow-${idSuffix}`
+  const gradId = `dt-grad-${idSuffix}`
+  const glowId = `dt-glow-${idSuffix}`
 
   return (
     <svg
@@ -19,7 +19,7 @@ export default function QueryFlowLogo({ size = 36, idSuffix = '0' }: Props) {
       viewBox="0 0 44 44"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      aria-label="QueryFlow logo"
+      aria-label="Datopia logo"
     >
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
@@ -38,15 +38,9 @@ export default function QueryFlowLogo({ size = 36, idSuffix = '0' }: Props) {
       {/* Subtle inner highlight at top */}
       <rect x="0" y="0" width="44" height="22" rx="11" fill="white" fillOpacity="0.06" />
 
-      {/* ── Icon: three data rows → flow chevron ─────────────────────── */}
-
-      {/* Row 1 — full width, bright */}
+      {/* Icon: three data rows → flow chevron */}
       <rect x="8" y="13.5" width="14" height="3" rx="1.5" fill="white" fillOpacity="0.95" />
-
-      {/* Row 2 — slightly shorter, medium */}
       <rect x="8" y="20.5" width="14" height="3" rx="1.5" fill="white" fillOpacity="0.95" />
-
-      {/* Row 3 — full width, bright */}
       <rect x="8" y="27.5" width="14" height="3" rx="1.5" fill="white" fillOpacity="0.95" />
 
       {/* Vertical separator */}
@@ -69,10 +63,9 @@ export default function QueryFlowLogo({ size = 36, idSuffix = '0' }: Props) {
   )
 }
 
-/** Inline wordmark: logo badge + "QueryFlow" text side-by-side */
+/** Inline wordmark: logo badge + "Datopia" text side-by-side */
 interface WordmarkProps {
   size?: number
-  /** 'light' for dark backgrounds (header), 'dark' for light backgrounds (login card) */
   theme?: 'light' | 'dark'
   idSuffix?: string
 }
@@ -88,10 +81,10 @@ export function QueryFlowWordmark({ size = 32, theme = 'dark', idSuffix = '0' }:
         <span
           style={{ color: textColor, fontSize: size * 0.47, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }}
         >
-          Query<span style={{ color: theme === 'light' ? 'rgba(255,255,255,0.75)' : '#2563EB' }}>Flow</span>
+          Dato<span style={{ color: theme === 'light' ? 'rgba(255,255,255,0.75)' : '#2563EB' }}>pia</span>
         </span>
         <span style={{ color: subColor, fontSize: size * 0.28, letterSpacing: '0.01em', lineHeight: 1.3 }}>
-          Visual SQL Pipelines
+          Imagine. Build. Flow.
         </span>
       </span>
     </span>

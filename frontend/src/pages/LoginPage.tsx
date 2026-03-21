@@ -39,7 +39,7 @@ export default function LoginPage() {
         <div className="flex items-center gap-3">
           <QueryFlowLogo size={40} idSuffix="login-panel" />
           <span className="text-white font-bold text-xl tracking-tight">
-            Query<span className="text-blue-300">Flow</span>
+            Dato<span className="text-blue-300">pia</span>
           </span>
         </div>
 
@@ -49,7 +49,7 @@ export default function LoginPage() {
             <span className="text-blue-300">without the complexity.</span>
           </p>
           <p className="text-sm text-blue-200/70 leading-relaxed">
-            Describe what you need in plain English — QueryFlow writes the SQL,
+            Describe what you need in plain English — Datopia writes the SQL,
             runs it step-by-step, and keeps your data flowing.
           </p>
 
@@ -67,7 +67,7 @@ export default function LoginPage() {
           </ul>
         </div>
 
-        <p className="text-xs text-blue-300/40">© {new Date().getFullYear()} QueryFlow</p>
+        <p className="text-xs text-blue-300/40">© {new Date().getFullYear()} Datopia</p>
       </div>
 
       {/* Right panel — form */}
@@ -78,7 +78,7 @@ export default function LoginPage() {
             <div className="flex items-center gap-3">
               <QueryFlowLogo size={44} idSuffix="login-mobile" />
               <span className="text-slate-900 font-bold text-2xl tracking-tight">
-                Query<span className="text-blue-600">Flow</span>
+                Dato<span className="text-blue-600">pia</span>
               </span>
             </div>
           </div>
@@ -86,7 +86,7 @@ export default function LoginPage() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-slate-900">Welcome back</h2>
-              <p className="text-sm text-slate-500 mt-1">Sign in to your QueryFlow workspace</p>
+              <p className="text-sm text-slate-500 mt-1">Sign in to your Datopia workspace</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">

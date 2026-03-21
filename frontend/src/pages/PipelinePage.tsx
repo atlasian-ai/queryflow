@@ -208,7 +208,7 @@ export default function PipelinePage() {
         <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-slate-700 transition-colors group flex-shrink-0">
           <QueryFlowLogo size={26} idSuffix="pipeline-header" />
           <span className="hidden sm:block font-bold text-sm text-slate-700 tracking-tight group-hover:text-slate-900">
-            Query<span className="text-blue-600">Flow</span>
+            Dato<span className="text-blue-600">pia</span>
           </span>
         </Link>
         <span className="text-slate-300 text-lg font-light select-none">/</span>
