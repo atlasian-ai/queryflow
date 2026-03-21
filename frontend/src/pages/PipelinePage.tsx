@@ -204,8 +204,8 @@ export default function PipelinePage() {
   return (
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
       {/* Header */}
-      <header className="bg-white border-b px-4 py-2 flex items-center gap-3 flex-shrink-0">
-        <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-slate-700 transition-colors group">
+      <header className="bg-white border-b px-3 sm:px-4 py-2 flex flex-wrap items-center gap-2 flex-shrink-0">
+        <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-slate-700 transition-colors group flex-shrink-0">
           <QueryFlowLogo size={26} idSuffix="pipeline-header" />
           <span className="hidden sm:block font-bold text-sm text-slate-700 tracking-tight group-hover:text-slate-900">
             Query<span className="text-blue-600">Flow</span>
@@ -220,61 +220,68 @@ export default function PipelinePage() {
             onChange={(e) => setNameValue(e.target.value)}
             onBlur={handleNameBlur}
             onKeyDown={(e) => { if (e.key === 'Enter') handleNameBlur(); if (e.key === 'Escape') setEditingName(false) }}
-            className="font-semibold text-slate-900 text-sm border-b border-blue-500 focus:outline-none bg-transparent"
+            className="font-semibold text-slate-900 text-sm border-b border-blue-500 focus:outline-none bg-transparent min-w-0"
           />
         ) : (
           <button
             onClick={() => { setEditingName(true); setNameValue(pipeline?.name ?? '') }}
-            className="font-semibold text-slate-900 text-sm hover:text-blue-600 transition-colors"
+            className="font-semibold text-slate-900 text-sm hover:text-blue-600 transition-colors truncate max-w-[180px] sm:max-w-none"
             title="Click to rename"
           >
             {pipeline?.name}
           </button>
         )}
 
-        {isDirty && <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">Unsaved</span>}
+        {isDirty && <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded flex-shrink-0">Unsaved</span>}
         <div className="flex-1" />
 
         <Link
           to="/sources"
-          className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 px-3 py-1.5 border rounded hover:bg-slate-50"
+          className="hidden sm:flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 px-3 py-1.5 border rounded hover:bg-slate-50 flex-shrink-0"
         >
           <Database size={13} /> Data Sources
         </Link>
 
-        {saveError && <span className="text-xs text-red-600">{saveError}</span>}
+        {saveError && <span className="text-xs text-red-600 hidden sm:block flex-shrink-0">{saveError}</span>}
 
         <button
           onClick={handleSave}
           disabled={saving || !isDirty}
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 border rounded hover:bg-slate-50 disabled:opacity-40"
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 border rounded hover:bg-slate-50 disabled:opacity-40 flex-shrink-0"
         >
           {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-          Save
+          <span className="hidden sm:inline">Save</span>
         </button>
 
         {running ? (
           <button
             onClick={handleStop}
-            className="flex items-center gap-1.5 text-xs bg-red-600 text-white px-4 py-1.5 rounded hover:bg-red-700 font-medium"
+            className="flex items-center gap-1.5 text-xs bg-red-600 text-white px-3 sm:px-4 py-1.5 rounded hover:bg-red-700 font-medium flex-shrink-0"
           >
-            <Square size={13} /> Stop
+            <Square size={13} /> <span className="hidden sm:inline">Stop</span>
           </button>
         ) : (
           <button
             onClick={handleRun}
             disabled={nodes.length === 0}
-            className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 font-medium"
+            className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-3 sm:px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 font-medium flex-shrink-0"
           >
-            <Play size={13} /> Run
+            <Play size={13} /> <span className="hidden sm:inline">Run</span>
           </button>
         )}
       </header>
 
+      {/* Save error bar (mobile) */}
+      {saveError && (
+        <div className="sm:hidden bg-red-50 border-b border-red-200 px-4 py-1.5 text-xs text-red-600">
+          {saveError}
+        </div>
+      )}
+
       {/* Main content */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex flex-col md:flex-row min-h-0">
         {/* Canvas + bottom panel */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Linear canvas */}
           <div className="flex-1 min-h-0 flex">
             <LinearPipelineCanvas
@@ -286,7 +293,7 @@ export default function PipelinePage() {
           </div>
 
           {/* Bottom panel */}
-          <div className="h-56 border-t bg-white flex flex-col flex-shrink-0">
+          <div className="h-44 sm:h-56 border-t bg-white flex flex-col flex-shrink-0">
             <div className="flex border-b bg-slate-50">
               {(['preview', 'log'] as const).map((tab) => (
                 <button
@@ -302,7 +309,7 @@ export default function PipelinePage() {
                 </button>
               ))}
               {bottomTab === 'preview' && (selectedNode || selectedSourceId) && (
-                <span className="ml-auto px-4 py-2 text-xs text-slate-400 self-center">
+                <span className="ml-auto px-4 py-2 text-xs text-slate-400 self-center truncate max-w-[120px] sm:max-w-none">
                   {selectedNode
                     ? selectedNode.data.label
                     : dataSources.find((d) => d.id === selectedSourceId)?.slug
@@ -322,13 +329,15 @@ export default function PipelinePage() {
         {/* Right panel — node config */}
         {selectedNodeId && (
           <>
+            {/* Resize handle (desktop only) */}
             <div
               onMouseDown={onPanelResizeStart}
-              className="w-1 cursor-col-resize bg-slate-200 hover:bg-blue-400 transition-colors flex-shrink-0"
+              className="hidden md:block w-1 cursor-col-resize bg-slate-200 hover:bg-blue-400 transition-colors flex-shrink-0"
             />
             <div
-              style={{ width: rightPanelWidth }}
-              className="border-l bg-white flex flex-col flex-shrink-0 overflow-hidden"
+              style={{ width: typeof window !== 'undefined' && window.innerWidth < 768 ? '100%' : rightPanelWidth }}
+              className="border-t md:border-t-0 md:border-l bg-white flex flex-col flex-shrink-0 overflow-hidden
+                         md:max-h-full max-h-64"
             >
               <NodeConfigPanel nodeId={selectedNodeId} pipelineId={pipelineId!} />
             </div>

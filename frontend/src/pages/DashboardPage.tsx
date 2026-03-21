@@ -47,35 +47,35 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white border-b px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2.5">
-            <QueryFlowLogo size={30} idSuffix="dash-header" />
-            <span className="font-bold text-slate-900 text-base tracking-tight">
+      <header className="bg-white border-b px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <QueryFlowLogo size={28} idSuffix="dash-header" />
+            <span className="font-bold text-slate-900 text-sm sm:text-base tracking-tight">
               Query<span className="text-blue-600">Flow</span>
             </span>
           </div>
-          <nav className="flex gap-4 text-sm">
+          <nav className="flex gap-3 sm:gap-4 text-sm">
             <span className="text-blue-600 font-medium">Pipelines</span>
-            <Link to="/sources" className="text-slate-500 hover:text-slate-900">Data Sources</Link>
+            <Link to="/sources" className="text-slate-500 hover:text-slate-900 hidden sm:block">Data Sources</Link>
           </nav>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-500">{user?.email}</span>
-          <button onClick={logout} className="text-slate-400 hover:text-slate-600">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <span className="text-xs sm:text-sm text-slate-500 hidden sm:block truncate max-w-[180px]">{user?.email}</span>
+          <button onClick={logout} className="text-slate-400 hover:text-slate-600 p-1" title="Sign out">
             <LogOut size={16} />
           </button>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-semibold text-slate-900">Pipelines</h1>
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="flex items-center justify-between mb-4 gap-3">
+          <h1 className="text-lg sm:text-xl font-semibold text-slate-900">Pipelines</h1>
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
+            className="flex items-center gap-1.5 sm:gap-2 bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 flex-shrink-0"
           >
-            <Plus size={16} /> New Pipeline
+            <Plus size={15} /> <span className="hidden sm:inline">New Pipeline</span><span className="sm:hidden">New</span>
           </button>
         </div>
 
@@ -92,7 +92,7 @@ export default function DashboardPage() {
 
         {/* Create form */}
         {creating && (
-          <form onSubmit={handleCreate} className="bg-white border rounded-lg p-4 mb-4 flex gap-3">
+          <form onSubmit={handleCreate} className="bg-white border rounded-lg p-4 mb-4 flex flex-col sm:flex-row gap-3">
             <input
               autoFocus
               value={newName}
@@ -100,8 +100,10 @@ export default function DashboardPage() {
               placeholder="Pipeline name..."
               className="flex-1 border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button type="submit" className="bg-blue-600 text-white px-4 py-1.5 rounded-md text-sm">Create</button>
-            <button type="button" onClick={() => setCreating(false)} className="text-slate-500 px-3 py-1.5 text-sm">Cancel</button>
+            <div className="flex gap-2">
+              <button type="submit" className="flex-1 sm:flex-none bg-blue-600 text-white px-4 py-1.5 rounded-md text-sm">Create</button>
+              <button type="button" onClick={() => setCreating(false)} className="flex-1 sm:flex-none text-slate-500 px-3 py-1.5 text-sm border rounded-md">Cancel</button>
+            </div>
           </form>
         )}
 
@@ -109,7 +111,7 @@ export default function DashboardPage() {
         {isLoading ? (
           <p className="text-sm text-slate-500">Loading...</p>
         ) : filteredPipelines.length === 0 ? (
-          <div className="bg-white border rounded-lg p-12 text-center">
+          <div className="bg-white border rounded-lg p-10 sm:p-12 text-center">
             <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500 text-sm">
               {search.trim() ? `No pipelines match "${search}"` : 'No pipelines yet. Create one to get started.'}
@@ -120,20 +122,21 @@ export default function DashboardPage() {
             {filteredPipelines.map((p) => (
               <div
                 key={p.id}
-                className="bg-white border rounded-lg px-5 py-4 flex items-center justify-between hover:border-blue-300 transition-colors cursor-pointer"
+                className="bg-white border rounded-lg px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between hover:border-blue-300 transition-colors cursor-pointer gap-3"
                 onClick={() => navigate(`/pipelines/${p.id}`)}
               >
-                <div>
-                  <p className="font-medium text-slate-900 text-sm">{p.name}</p>
-                  {p.description && <p className="text-xs text-slate-500 mt-0.5">{p.description}</p>}
+                <div className="min-w-0">
+                  <p className="font-medium text-slate-900 text-sm truncate">{p.name}</p>
+                  {p.description && <p className="text-xs text-slate-500 mt-0.5 truncate">{p.description}</p>}
                   <p className="text-xs text-slate-400 mt-1">
                     Updated {new Date(p.updated_at).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     onClick={(e) => { e.stopPropagation(); navigate(`/pipelines/${p.id}`) }}
                     className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                    title="Open pipeline"
                   >
                     <Play size={14} />
                   </button>
@@ -143,6 +146,7 @@ export default function DashboardPage() {
                       if (confirm('Delete this pipeline?')) deleteMutation.mutate(p.id)
                     }}
                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                    title="Delete pipeline"
                   >
                     <Trash2 size={14} />
                   </button>
