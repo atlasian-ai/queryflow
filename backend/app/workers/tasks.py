@@ -41,9 +41,8 @@ def _get_db_session():
     return Session()
 
 
-@celery_app.task(bind=True, name="execute_pipeline")
-def execute_pipeline(self, run_id: str):
-    """Execute all nodes of a pipeline run in topological order."""
+def run_pipeline_sync(run_id: str) -> None:
+    """Execute all nodes of a pipeline run in topological order (sync, no Celery)."""
     from app.models.pipeline import Pipeline, PipelineNode, PipelineEdge, PipelineRun, NodeResult, DataSource
 
     db = _get_db_session()
@@ -129,6 +128,10 @@ def execute_pipeline(self, run_id: str):
         # Node result cache: node_id -> DataFrame (kept in memory during run)
         result_cache: dict[str, pd.DataFrame] = {}
 
+        # Pre-compute slugs of every node for forward-reference validation
+        all_slugs_in_order = [n["slug"] for n in ordered_nodes]
+        data_source_slugs = {ds.slug for ds in data_sources_orm}
+
         # Execute nodes in order
         for node in ordered_nodes:
             node_id = node["id"]
@@ -145,8 +148,17 @@ def execute_pipeline(self, run_id: str):
                     parent_node = next(n for n in nodes if n["id"] == parent_id)
                     conn.register(parent_node["slug"], result_cache[parent_id])
 
+            # Validate: reject forward references to subsequent nodes
+            current_index = all_slugs_in_order.index(node["slug"])
+            subsequent_slugs = set(all_slugs_in_order[current_index + 1:])
+
             # Execute
             try:
+                exec_svc.validate_node_references(
+                    node.get("sql", ""),
+                    subsequent_slugs,
+                    node["label"],
+                )
                 result = exec_svc.execute_node(node, conn, run_id, max_rows=settings.max_rows_pro)
 
                 nr.status = "success"
@@ -196,3 +208,9 @@ def execute_pipeline(self, run_id: str):
             pass
     finally:
         db.close()
+
+
+@celery_app.task(bind=True, name="execute_pipeline")
+def execute_pipeline(self, run_id: str):
+    """Celery wrapper — delegates to run_pipeline_sync."""
+    run_pipeline_sync(run_id)

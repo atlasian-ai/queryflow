@@ -7,6 +7,7 @@ then the node's SQL is executed and the result is persisted.
 """
 import io
 import logging
+import re
 import time
 from collections import deque
 from typing import Optional
@@ -96,6 +97,63 @@ def _infer_schema(df: pd.DataFrame) -> list[dict]:
             friendly = "DATE"
         schema.append({"name": col, "dtype": friendly})
     return schema
+
+
+def _extract_table_refs(sql: str) -> set[str]:
+    """
+    Extract table/view names from FROM and JOIN clauses in a SQL string.
+    CTE names (defined within the query via WITH) are excluded — they are local aliases.
+    """
+    # Strip single-line and block comments
+    sql = re.sub(r"--[^\n]*", " ", sql)
+    sql = re.sub(r"/\*.*?\*/", " ", sql, flags=re.DOTALL)
+
+    # Collect CTE names so we don't flag them as external references
+    cte_names: set[str] = set()
+    # WITH cte1 AS (...), cte2 AS (...)
+    for m in re.finditer(r"\bWITH\b(.*?)(?=\bSELECT\b)", sql, re.IGNORECASE | re.DOTALL):
+        for name in re.findall(r"\b(\w+)\s+AS\s*\(", m.group(1), re.IGNORECASE):
+            cte_names.add(name.lower())
+
+    # Extract bare and double-quoted names after FROM / JOIN keywords
+    pattern = re.compile(
+        r'\b(?:FROM|JOIN)\s+(?:"([^"]+)"|([a-zA-Z_]\w*))',
+        re.IGNORECASE,
+    )
+    refs: set[str] = set()
+    for m in pattern.finditer(sql):
+        name = (m.group(1) or m.group(2) or "").lower()
+        if name and name not in cte_names:
+            refs.add(name)
+
+    return refs
+
+
+def validate_node_references(
+    sql: str,
+    subsequent_slugs: set[str],
+    node_label: str,
+) -> None:
+    """
+    Raise ValueError if the node's SQL references any slug that belongs to a
+    subsequent (not-yet-executed) node — i.e. a forward reference.
+
+    subsequent_slugs: slugs of all nodes that come *after* this node in
+                      topological execution order.
+    """
+    if not sql or not subsequent_slugs:
+        return
+
+    refs = _extract_table_refs(sql)
+    violations = refs & {s.lower() for s in subsequent_slugs}
+
+    if violations:
+        names = ", ".join(sorted(violations))
+        raise ValueError(
+            f"Node '{node_label}' references '{names}', which "
+            f"belong(s) to a subsequent step. Each node can only query "
+            f"previous node outputs and data sources — not future steps."
+        )
 
 
 def execute_node(

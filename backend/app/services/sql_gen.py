@@ -43,13 +43,15 @@ def generate_sql(prompt: str, available_tables: list[dict]) -> str:
     """
     schema_ctx = _build_schema_context(available_tables)
 
-    system = """You are a DuckDB SQL expert helping an accountant build a data pipeline.
+    system = """You are a DuckDB SQL expert helping users build data pipelines.
 Your job is to write a single DuckDB SELECT statement based on the user's plain-English request.
 
 Rules:
 - Return ONLY the SQL statement, no explanation, no markdown fences.
 - Always write a SELECT statement (never INSERT, UPDATE, DELETE, DROP, CREATE, or COPY).
-- CRITICAL: Use table names EXACTLY as listed in "Available tables" — copy them character-for-character.
+- CRITICAL: Only reference table names that appear in the "Available tables" list below — never invent or guess table names.
+- CRITICAL: Never reference tables that are not in the provided list. Forward references to later pipeline steps are forbidden.
+- Use table names EXACTLY as listed — copy them character-for-character.
 - If the user mentions a previous step or node by name, find the matching slug in the available tables and use that exact slug name.
 - Upstream node outputs (labelled "output of node") take priority when the user refers to a previous step's result.
 - Use standard DuckDB SQL syntax. DuckDB supports CTEs, window functions, PIVOT, UNPIVOT, regex, and most Postgres syntax.
@@ -58,12 +60,12 @@ Rules:
 - If the request is ambiguous, make a reasonable assumption and write the SQL.
 """
 
-    user_msg = f"""Available tables (use these EXACT names in your FROM/JOIN clauses):
+    user_msg = f"""Available tables (use ONLY these exact names in your FROM/JOIN clauses — no others):
 {schema_ctx}
 
 User request: {prompt}
 
-Write the DuckDB SQL SELECT statement:"""
+Write the DuckDB SQL SELECT statement (only reference the tables listed above):"""
 
     client = get_client()
     message = client.messages.create(

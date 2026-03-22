@@ -1,6 +1,8 @@
 """Pipeline run management — trigger, poll, fetch results, download."""
+import asyncio
 import io
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -16,9 +18,12 @@ from app.models.user import User
 from app.models.pipeline import Pipeline, PipelineRun, NodeResult
 from app.schemas.pipeline import RunOut, RunDetail, NodeResultOut
 from app.services.storage import download_file
-from app.workers.tasks import execute_pipeline
+from app.workers.tasks import run_pipeline_sync
 
 router = APIRouter()
+
+# Thread pool for running pipelines inline (avoids Celery queue latency)
+_pipeline_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pipeline")
 
 
 @router.post("/{pipeline_id}/run", response_model=RunOut, status_code=202)
@@ -40,9 +45,14 @@ async def trigger_run(
     db.add(run)
     await db.flush()
     await db.refresh(run)
+    run_id = str(run.id)
 
-    # Enqueue Celery task
-    execute_pipeline.delay(str(run.id))
+    # Commit before starting the thread so the task can read the run from DB
+    await db.commit()
+
+    # Run pipeline inline in a thread pool (no Celery queue wait)
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(_pipeline_executor, run_pipeline_sync, run_id)
 
     return run
 

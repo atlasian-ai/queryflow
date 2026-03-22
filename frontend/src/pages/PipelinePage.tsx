@@ -6,9 +6,9 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Save, Play, Square, Database, Loader2 } from 'lucide-react'
 import QueryFlowLogo from '@/components/QueryFlowLogo'
-import { getPipeline, savePipeline, triggerRun, getRun, cancelRun, listSources } from '@/lib/api'
+import { getPipeline, savePipeline, triggerRun, getRun, listRuns, cancelRun, listSources } from '@/lib/api'
 import { usePipelineStore } from '@/store/usePipelineStore'
-import type { PipelineDetail, RunDetail, DataSource } from '@/types'
+import type { PipelineDetail, RunDetail, DataSource, PipelineRun } from '@/types'
 import LinearPipelineCanvas from '@/components/canvas/LinearPipelineCanvas'
 import NodeConfigPanel from '@/components/panels/NodeConfigPanel'
 import DataPreviewPanel from '@/components/panels/DataPreviewPanel'
@@ -53,12 +53,31 @@ export default function PipelinePage() {
     queryFn: listSources,
   })
 
+  // Load latest run to restore preview state on page open
+  const { data: latestRun } = useQuery<RunDetail | null>({
+    queryKey: ['latest-run', pipelineId],
+    queryFn: async () => {
+      const runs: PipelineRun[] = await listRuns(pipelineId!)
+      if (!runs?.length) return null
+      return getRun(runs[0].id)
+    },
+    enabled: Boolean(pipelineId),
+    staleTime: Infinity,
+  })
+
   useEffect(() => {
     if (!pipeline) return
     setPipeline(pipeline.id, pipeline.name)
     setNameValue(pipeline.name)
     loadFromDB(pipeline.nodes, pipeline.edges)
   }, [pipeline?.id])
+
+  // Hydrate run state from latest run (so data preview works without re-running)
+  useEffect(() => {
+    if (!latestRun || running) return
+    applyRunResult(latestRun)
+    setActiveRun(latestRun.id)
+  }, [latestRun?.id])
 
   // ── Pipeline rename ──────────────────────────────────────────────
   const handleNameBlur = useCallback(async () => {
