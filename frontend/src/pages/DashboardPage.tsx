@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Database, LogOut, Search, MoreHorizontal,
-  Trash2, FolderOpen, FolderPlus, ChevronRight, X,
+  Trash2, FolderOpen, FolderPlus, ChevronRight, X, Menu,
 } from 'lucide-react'
 import {
   listPipelines, createPipeline, deletePipeline, savePipeline,
@@ -349,6 +349,7 @@ export default function DashboardPage() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'updated' | 'name'>('updated')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Modals
   const [showCreatePipeline, setShowCreatePipeline] = useState(false)
@@ -416,8 +417,20 @@ export default function DashboardPage() {
   return (
     <div className="h-screen flex overflow-hidden bg-slate-50">
 
+      {/* ── Mobile sidebar backdrop ───────────────────────────────── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* ── Left Sidebar ─────────────────────────────────────────── */}
-      <aside className="w-56 flex-shrink-0 bg-white border-r flex flex-col overflow-hidden">
+      <aside className={`
+        fixed inset-y-0 left-0 z-30 w-56 bg-white border-r flex flex-col overflow-hidden transition-transform duration-200
+        md:static md:translate-x-0 md:flex-shrink-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
         {/* Logo */}
         <div className="px-4 py-3.5 border-b flex items-center gap-2.5">
           <QueryFlowLogo size={26} idSuffix="dash-sidebar" />
@@ -430,14 +443,14 @@ export default function DashboardPage() {
         <div className="px-2 pt-4 pb-2">
           <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 px-3 mb-1">Assets</p>
           <button
-            onClick={() => setSelectedFolderId(null)}
+            onClick={() => { setSelectedFolderId(null); setSidebarOpen(false) }}
             className={sidebarItem(selectedFolderId === null)}
           >
             <FolderOpen size={14} className="flex-shrink-0" />
             <span className="flex-1 truncate">All Pipelines</span>
             <span className="text-xs text-slate-400 flex-shrink-0">{pipelines.length}</span>
           </button>
-          <Link to="/sources" className={sidebarItem(false)}>
+          <Link to="/sources" onClick={() => setSidebarOpen(false)} className={sidebarItem(false)}>
             <Database size={14} className="flex-shrink-0" />
             <span className="flex-1">Data Sources</span>
           </Link>
@@ -463,7 +476,7 @@ export default function DashboardPage() {
             return (
               <div key={f.id} className="group relative">
                 <button
-                  onClick={() => setSelectedFolderId(f.id)}
+                  onClick={() => { setSelectedFolderId(f.id); setSidebarOpen(false) }}
                   className={sidebarItem(selectedFolderId === f.id)}
                 >
                   <span className="flex-shrink-0">{f.emoji}</span>
@@ -518,13 +531,22 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Top bar */}
-        <div className="bg-white border-b px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0">
-          <h1 className="text-lg font-semibold text-slate-800 truncate">{currentFolderName}</h1>
+        <div className="bg-white border-b px-4 md:px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              className="md:hidden p-1.5 rounded text-slate-500 hover:bg-slate-100 flex-shrink-0"
+              aria-label="Toggle menu"
+            >
+              <Menu size={18} />
+            </button>
+            <h1 className="text-lg font-semibold text-slate-800 truncate">{currentFolderName}</h1>
+          </div>
           <button
             onClick={() => setShowCreatePipeline(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex-shrink-0"
           >
-            <Plus size={15} /> Create pipeline
+            <Plus size={15} /> <span className="hidden sm:inline">Create pipeline</span><span className="sm:hidden">New</span>
           </button>
         </div>
 
