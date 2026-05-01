@@ -4,6 +4,8 @@
 
 Datopia is a visual, AI-assisted data pipeline builder for anyone who wants to explore, transform, and understand data — no SQL expertise required. Describe what you want in plain English, and Datopia writes the SQL, runs it step-by-step, and keeps your data flowing.
 
+<img width="1911" height="906" alt="Datopia screenshot example" src="https://github.com/user-attachments/assets/bf755444-2ec5-4204-bb18-f02c0731c20c" />
+
 ---
 
 ## What is Datopia?
